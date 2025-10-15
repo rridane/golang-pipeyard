@@ -1,17 +1,16 @@
-# 🧱 Pipewire – Centralized, Observable CI Pipelines for Go
+# 🧱 pipeyard – Centralized, Observable CI Pipelines for Go
 
 > **Imagine a pipeline as clean as this for your Go project.**
 >
 > You define your stages in Go.  
 > Your workflows run everywhere — GitHub Actions, GitLab CI, Azure Devops, Jenkins, Dagger...  
 > All fully instrumented with OpenTelemetry and auto-wired dependencies.
-
 ---
 
 ## 🚀 Example
 
 Let’s imagine your project `mywonderfulproject-cli`, a small Go CLI tool.
-Here’s how its GitHub Actions pipeline looks when powered by Pipewire:
+Here’s how its GitHub Actions pipeline looks when powered by pipeyard:
 
 ```yaml
 name: 🚀 MyWonderfulProject CI
@@ -35,10 +34,10 @@ jobs:
         with:
           go-version: '1.24'
 
-      - name: 🧪 Run tests via Pipewire
+      - name: 🧪 Run tests via pipeyard
         run: go run ./ci test --timeout 60s
 
-      - name: ⚙️ Build via Pipewire
+      - name: ⚙️ Build via pipeyard
         run: go run ./ci build
 ```
 
@@ -46,10 +45,10 @@ jobs:
 
 ## ✨ How it works
 
-Pipewire turns your Go project into a **self-contained, observable CI pipeline**.
+pipeyard turns your Go project into a **self-contained, observable CI pipeline**.
 
 Each stage (`test`, `build`, `release`) is a Go struct implementing a simple contract.  
-Pipewire handles orchestration, dependency injection, and full OpenTelemetry observability.
+pipeyard handles orchestration, dependency injection, and full OpenTelemetry observability.
 
 ---
 
@@ -82,7 +81,7 @@ func (s *BuildStage) Execute(ctx context.Context, cmd *cobra.Command, logger *za
 
 ## 🧩 Assembling the Pipeline
 
-Once your stages are defined, Pipewire lets you **assemble them into a real command-line pipeline**.
+Once your stages are defined, pipeyard lets you **assemble them into a real command-line pipeline**.
 
 You do this in a `main.go` file — typically in a `ci/` folder — where you create a pipeline and register your stages.
 
@@ -106,7 +105,7 @@ func main() {
     pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
     Name:             "ci_pipeline",
     ShortDescription: "CI CLI – All stages",
-    LongDescription:  "Pipeline cli for pipewire library",
+    LongDescription:  "Pipeline cli for pipeyard library",
     Version:          "1.0.0",
     Injectors: []any{
     &injectors.ShellExecutorInjector{},
@@ -134,19 +133,19 @@ func main() {
 func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injectors.TelemetryLoggerInjector) {
 
 tracerInjector := injectors.TracerInjector{
-ServiceName:              "pipewire",
+ServiceName:              "pipeyard",
 OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 }
 
 telemetryLoggerInjector := injectors.TelemetryLoggerInjector{
-ServiceName:              "pipewire",
+ServiceName:              "pipeyard",
 EnableOtelExport:         true,
 OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 LogLevel:                 zapcore.InfoLevel,
 }
 
 meterInjector := injectors.MeterInjector{
-ServiceName:              "pipewire",
+ServiceName:              "pipeyard",
 OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 }
 
@@ -164,7 +163,7 @@ return tracerInjector, meterInjector, telemetryLoggerInjector
 
 ## 🧠 Cobra Integration
 
-Because Pipewire is powered by [Cobra](https://github.com/spf13/cobra),  
+Because pipeyard is powered by [Cobra](https://github.com/spf13/cobra),  
 you instantly get a **full CLI interface** for your pipeline.
 
 ### Root help
@@ -207,14 +206,14 @@ Flags:
   -h, --help   help for build
 ```
 
-✅ You don’t need to manually parse or manage flags — Pipewire + Cobra handle everything.  
+✅ You don’t need to manually parse or manage flags — pipeyard + Cobra handle everything.  
 Each `RegisterStage` automatically becomes a subcommand, fully typed and documented.
 
 🧩 At this point, your pipeline is fully assembled — all your stages are defined, your CLI is automatically generated, and your CI is ready to run anywhere (locally, in GitHub Actions, GitLab CI, Jenkins, or even inside a Dagger pipeline).
 
-## 🧠 Injectors – The heart of Pipewire's Dependency Injection
+## 🧠 Injectors – The heart of pipeyard's Dependency Injection
 
-Injectors are the **core mechanism** that power Pipewire’s dependency injection system.
+Injectors are the **core mechanism** that power pipeyard’s dependency injection system.
 
 An **injector** is a simple Go `struct` that provides a ready-to-use instance of a module or service (e.g. logger, tracer, Kubernetes client) with its own configuration.  
 In other words:
@@ -222,7 +221,7 @@ In other words:
 > 💡 **Injector = Module + Specific Configuration — supercharged for automatic injection.**
 
 You don’t have to manually pass dependencies between stages.  
-Pipewire automatically matches the parameters of each stage’s `Execute()` function to the appropriate injectors.
+pipeyard automatically matches the parameters of each stage’s `Execute()` function to the appropriate injectors.
 
 For example:
 
@@ -237,7 +236,7 @@ func (s *MyStage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.L
 }
 ```
 
-As long as your pipeline includes a `TelemetryLoggerInjector` and a `TracerInjector`, Pipewire automatically injects both dependencies into this stage.
+As long as your pipeline includes a `TelemetryLoggerInjector` and a `TracerInjector`, pipeyard automatically injects both dependencies into this stage.
 
 ## ⚙️ Built-in Injectors
 
@@ -269,7 +268,7 @@ Inject(stageName string) any
 ```
 
 It returns a pointer to the configured module or client (e.g. *zap.Logger, *redis.Client, etc.).
-Pipewire automatically detects it and injects the returned instance into any stage requesting that type.
+pipeyard automatically detects it and injects the returned instance into any stage requesting that type.
 
 The essence of an injector is that it carries its configuration inside its own fields, making each instance self-contained and reusable across stages.
 
@@ -302,7 +301,7 @@ Any stage that declares a `*redis.Client` parameter will automatically receive i
 
 ## 🧭 How stages receive dependencies
 
-Pipewire automatically detects what each stage needs based on its `Execute()` parameters.
+pipeyard automatically detects what each stage needs based on its `Execute()` parameters.
 
 ```go
 func (s *TestStage) Execute(
@@ -317,7 +316,7 @@ func (s *TestStage) Execute(
 }
 ```
 
-When you run `go run ./ci test`, Pipewire:
+When you run `go run ./ci test`, pipeyard:
 - inspects the `Execute` signature via reflection,
 - matches each parameter with a registered injector,
 - injects the correct instance.
@@ -344,7 +343,7 @@ Example:
 
 # 📊 Observability baked-in (explicit job instrumentation)
 
-Pipewire doesn’t automatically instrument your stages — instead, it provides a **clean, reusable helper** called `JobInstrumentation` for **manual but standardized observability**.
+pipeyard doesn’t automatically instrument your stages — instead, it provides a **clean, reusable helper** called `JobInstrumentation` for **manual but standardized observability**.
 
 Each stage can declare a tracing, metrics, and logging context using:
 
@@ -397,14 +396,14 @@ This pattern:
 
 ## 🧱 Self-powered pipeline
 
-Pipewire uses *itself* to test, build, and release its library:
+pipeyard uses *itself* to test, build, and release its library:
 ```bash
 go run ./ci test
 go run ./ci build
 go run ./ci release v1.0.0
 ```
 
-You can **extend Pipewire** with your own stages or injectors  
+You can **extend pipeyard** with your own stages or injectors  
 and still use the same CI/CD philosophy across all your projects.
 
 ---
@@ -423,7 +422,7 @@ and still use the same CI/CD philosophy across all your projects.
 
 # 🌀 Quickstart
 
-Pipewire is extremely simple to get started with — no boilerplate, no YAML.
+pipeyard is extremely simple to get started with — no boilerplate, no YAML.
 
 ---
 
@@ -432,7 +431,7 @@ Pipewire is extremely simple to get started with — no boilerplate, no YAML.
 ```bash
 mkdir my-pipeline && cd my-pipeline
 go mod init my-pipeline
-go get github.com/rridane/golang-pipewire
+go get github.com/rridane/golang-pipeyard
 ```
 
 ---
@@ -446,8 +445,8 @@ package main
 
 import (
     "context"
-    "github.com/rridane/golang-pipewire"
-    "github.com/rridane/golang-pipewire/injectors"
+    "github.com/rridane/golang-pipeyard"
+    "github.com/rridane/golang-pipeyard/injectors"
     "go.uber.org/zap/zapcore"
     "os"
 )
@@ -456,11 +455,11 @@ type HelloStage struct{}
 
 func (s *HelloStage) Configure(cmd *cobra.Command) {
     cmd.Use = "hello"
-    cmd.Short = "Say hello from your first Pipewire stage"
+    cmd.Short = "Say hello from your first pipeyard stage"
 }
 
 func (s *HelloStage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger) error {
-    logger.Info("👋 Hello from Pipewire!")
+    logger.Info("👋 Hello from pipeyard!")
     return nil
 }
 
@@ -479,7 +478,7 @@ func main() {
 
     pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
         Name: "my_pipeline",
-        ShortDescription: "A simple Pipewire demo",
+        ShortDescription: "A simple pipeyard demo",
         Version: "0.1.0",
         Injectors: []any{&tracer, &logger},
     })
@@ -510,7 +509,7 @@ go run . hello
 Output:
 
 ```
-{"level":"info","msg":"👋 Hello from Pipewire!","stage":"hello"}
+{"level":"info","msg":"👋 Hello from pipeyard!","stage":"hello"}
 ✅ Stage terminé en 0.004s
 ```
 

@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	shell_executor "github.com/rridane/golang-pipewire/modules/shell_executor"
-	"github.com/rridane/golang-pipewire/stage_layers"
+	shell_executor "github.com/rridane/golang-pipeyard/modules/shell_executor"
+	"github.com/rridane/golang-pipeyard/stage_layers"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"

@@ -3,7 +3,7 @@ package injectors
 import (
 	"fmt"
 
-	github_releases "github.com/rridane/golang-pipewire/modules/github_releases_sdk"
+	github_releases "github.com/rridane/golang-pipeyard/modules/github_releases_sdk"
 )
 
 // GitHubReleaseInjector fournit une ReleaseFactory GitHub configurée explicitement.

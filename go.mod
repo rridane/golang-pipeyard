@@ -1,4 +1,4 @@
-module github.com/rridane/golang-pipewire
+module github.com/rridane/golang-pipeyard
 
 go 1.24.0
 
@@ -32,7 +32,7 @@ require (
 	mvdan.cc/sh/v3 v3.12.0
 )
 
-replace github.com/rridane/golang-pipewire => ./
+replace github.com/rridane/golang-pipeyard => ./
 
 require (
 	dario.cat/mergo v1.0.1 // indirect

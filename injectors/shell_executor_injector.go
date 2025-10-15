@@ -1,7 +1,7 @@
 package injectors
 
 import (
-	shell_executor "github.com/rridane/golang-pipewire/modules/shell_executor"
+	shell_executor "github.com/rridane/golang-pipeyard/modules/shell_executor"
 	"time"
 )
 

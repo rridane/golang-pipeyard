@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"github.com/joho/godotenv"
-	pipeline_provider "github.com/rridane/golang-pipewire"
-	injectors "github.com/rridane/golang-pipewire/injectors"
+	pipeline_provider "github.com/rridane/golang-pipeyard"
+	injectors "github.com/rridane/golang-pipeyard/injectors"
 	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
@@ -26,7 +26,7 @@ func main() {
 	pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
 		Name:             "ci_pipeline",
 		ShortDescription: "CI CLI – All stages",
-		LongDescription:  "Pipeline cli for pipewire library",
+		LongDescription:  "Pipeline cli for pipeyard library",
 		Version:          "1.0.0",
 		Injectors: []any{
 			&injectors.ShellExecutorInjector{},
@@ -52,19 +52,19 @@ func main() {
 func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injectors.TelemetryLoggerInjector) {
 
 	tracerInjector := injectors.TracerInjector{
-		ServiceName:              "pipewire",
+		ServiceName:              "pipeyard",
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 
 	telemetryLoggerInjector := injectors.TelemetryLoggerInjector{
-		ServiceName:              "pipewire",
+		ServiceName:              "pipeyard",
 		EnableOtelExport:         true,
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		LogLevel:                 zapcore.InfoLevel,
 	}
 
 	meterInjector := injectors.MeterInjector{
-		ServiceName:              "pipewire",
+		ServiceName:              "pipeyard",
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 	}
 

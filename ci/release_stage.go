@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	github_releases "github.com/rridane/golang-pipewire/modules/github_releases_sdk"
-	"github.com/rridane/golang-pipewire/stage_layers"
+	github_releases "github.com/rridane/golang-pipeyard/modules/github_releases_sdk"
+	"github.com/rridane/golang-pipeyard/stage_layers"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -50,11 +50,11 @@ func (s *ReleaseStage) Execute(
 	// Étape 1 — Préparer la release
 	release := releaseFactory.
 		WithTag(version).
-		WithReleaseName(fmt.Sprintf("Pipewire %s", version)).
+		WithReleaseName(fmt.Sprintf("pipeyard %s", version)).
 		WithTargetBranch(branch).
 		AsPrerelease(isPrerelease).
 		AsDraft(!shouldPublish).
-		WithBody("Automated release created via Pipewire CI").
+		WithBody("Automated release created via pipeyard CI").
 		PrepareRelease()
 
 	// Étape 2 — Création du tag Git

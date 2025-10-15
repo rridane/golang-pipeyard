@@ -8,9 +8,9 @@ package releases_sdk
 
 import (
 	"fmt"
-	"github.com/rridane/golang-pipewire/modules/gitlab"
-	"github.com/rridane/golang-pipewire/modules/gitlab/issue_filters"
-	"github.com/rridane/golang-pipewire/modules/teams_sdk"
+	gitlab_utils "github.com/rridane/golang-pipeyard/modules/gitlab"
+	"github.com/rridane/golang-pipeyard/modules/gitlab/issue_filters"
+	teams "github.com/rridane/golang-pipeyard/modules/teams_sdk"
 	"sort"
 	"strconv"
 	"time"
