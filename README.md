@@ -300,7 +300,7 @@ Any stage that declares a `*redis.Client` parameter will automatically receive i
 
 ---
 
-## 🧭 How stages receive dependencies
+## 🧭 Dependency Injection under the hood 
 
 pipeyard automatically detects what each stage needs based on its `Execute()` parameters.
 
@@ -323,22 +323,6 @@ When you run `go run ./ci test`, pipeyard:
 - injects the correct instance.
 
 No globals. No configuration duplication.
-
----
-
-## 📊 Observability baked-in
-
-Each stage automatically emits:
-- **Traces** (OpenTelemetry spans)
-- **Metrics** (`job_total_calls`, `job_duration_seconds`)
-- **Structured logs** (`zap` JSON, exported to OTLP if enabled)
-
-Everything is correlated by `stage_name` and `status`.
-
-Example:
-```
-{"level":"info","msg":"✅ Stage terminé","stage":"build","duration_sec":3.2,"trace_id":"b6a12a2f2e3f3c9d"}
-```
 
 ---
 
