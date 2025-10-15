@@ -1,4 +1,4 @@
-🧱 PipeYard — Centralized, Cross-Platform CI Orchestration in Go
+# 🧱 PipeYard — Centralized, Cross-Platform CI Orchestration in Go
 
 > **Imagine a pipeline as clean as this for your Go project.**
 >
