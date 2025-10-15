@@ -12,6 +12,9 @@ type DependencyInjector[T any] interface {
 // return serviceA reflect value for a method Method(serviceA) if injector of ServiceA is active
 // Method ...params
 func getDependencies(m reflect.Method, injectMethods []reflect.Value, stageName string) ([]reflect.Value, error) {
+
+	//start := time.Now()
+
 	var arg []reflect.Value
 	var missingDeps []string
 	numParams := m.Type.NumIn()
@@ -24,12 +27,17 @@ func getDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 		indexPParamType := m.Type.In(p)
 		found := false
 
-		if indexPParamType.Kind() != reflect.Ptr {
-			continue
-		}
-
 		for i := 0; i < len(injectMethods); i++ {
+
+			//start_method := time.Now()
+
 			injectorMethod := injectMethods[i]
+			returnType := injectorMethod.Type().Out(0)
+
+			if !returnType.AssignableTo(indexPParamType) {
+				continue
+			}
+
 			injectResponse := injectorMethod.Call([]reflect.Value{reflect.ValueOf(stageName)})
 
 			if len(injectResponse) == 0 || injectResponse[0].IsNil() {
@@ -45,11 +53,17 @@ func getDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 				i--
 				break
 			}
+
+			//elapsed_method := time.Since(start_method)
+			//fmt.Printf("Traitement de %s: %s\n", injectorMethod, elapsed_method)
 		}
 
 		if !found {
 			missingDeps = append(missingDeps, indexPParamType.String())
 		}
+
+		//elapsed := time.Since(start)
+		//fmt.Printf("⏱️ Durée de fetch des dépendances: %s\n", elapsed)
 
 	}
 
@@ -102,10 +116,10 @@ func validateDependencyInjector(inj any) (reflect.Value, error) {
 		return reflect.Value{}, fmt.Errorf("%T.Inject doit retourner exactement une valeur", inj)
 	}
 
-	outType := method.Type.Out(0)
-	if outType.Kind() != reflect.Ptr {
-		return reflect.Value{}, fmt.Errorf("%T.Inject doit retourner un pointeur (actuel : %v)", inj, outType)
-	}
+	//outType := method.Type.Out(0)
+	//if outType.Kind() != reflect.Ptr {
+	//	return reflect.Value{}, fmt.Errorf("%T.Inject doit retourner un pointeur (actuel : %v)", inj, outType)
+	//}
 
 	injectMethod := injValue.MethodByName("Inject")
 

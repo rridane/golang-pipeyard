@@ -1,0 +1,40 @@
+name: 🧱 Pipewire Library CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    name: 🧩 Pipewire CI Pipeline
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        go-version: [ '1.22', '1.23', '1.24' ]
+
+    steps:
+      - name: 📦 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: ⚙️ Install dependencies
+        run: go mod tidy
+
+      - name: 🧪 Run tests via Pipewire
+        run: go run ./ci test --timeout 60s
+
+      - name: ⚙️ Build library via Pipewire
+        run: go run ./ci build
+
+      - name: 🚀 Release via Pipewire
+        if: startsWith(github.ref, 'refs/tags/')
+        run: go run ./ci release ${GITHUB_REF#refs/tags/} --branch main --publish

@@ -216,7 +216,7 @@ func (r *release) CommunicateThroughTeams() *release {
 
 	b2 := teams.NotificationButton{
 		Title: "Environments",
-		Url:   "https://grafana.example.com/d/dashboard",
+		Url:   "",
 	}
 
 	Text := "<br>Corrections ou évolutions embarquées :<br>"

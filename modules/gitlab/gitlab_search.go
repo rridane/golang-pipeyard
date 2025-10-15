@@ -8,8 +8,7 @@ package gitlab_utils
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/xanzy/go-gitlab"
-	"i4c/modules/utils"
+	"gitlab.com/gitlab-org/api/client-go"
 )
 
 type IssueFilter interface {
@@ -59,9 +58,11 @@ func (g *GitlabUtils) GetTagsFromGitlab(t []TagFilter) []Tag {
 
 	client, err := gitlab.NewClient(g.Token, gitlab.WithBaseURL(GitlabUrl+":"+GitlabPort))
 
-	fmt.Println("Getting Tags From Gitlab ...")
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	utils.HandleErr(err, true)
+	fmt.Println("Getting Tags From Gitlab ...")
 
 	var listTagOptions gitlab.ListTagsOptions
 
@@ -75,6 +76,10 @@ func (g *GitlabUtils) GetTagsFromGitlab(t []TagFilter) []Tag {
 	}
 
 	tagsFromGitlab, _, err := client.Tags.ListTags(g.ProjectId, &listTagOptions)
+
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	var tags []Tag
 
@@ -93,8 +98,6 @@ func (g *GitlabUtils) GetTagsFromGitlab(t []TagFilter) []Tag {
 
 	}
 
-	utils.HandleErr(err, true)
-
 	return tags
 }
 
@@ -104,7 +107,9 @@ func (g *GitlabUtils) GetReleaseFromGitlab(releaseVersion string) Release {
 
 	client, err := gitlab.NewClient(g.Token, gitlab.WithBaseURL(GitlabUrl+":"+GitlabPort))
 
-	utils.HandleErr(err, true)
+	if err != nil {
+		fmt.Println(err)
+	}
 
 	rel, _, err := client.Releases.GetRelease(g.ProjectId, releaseVersion)
 

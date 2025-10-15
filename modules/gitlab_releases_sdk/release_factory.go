@@ -1,7 +1,7 @@
 package releases_sdk
 
 import (
-	gitlab_utils "i4c/modules/gitlab"
+	gitlab_utils "github.com/rridane/golang-pipewire/modules/gitlab"
 	"log"
 	"time"
 )

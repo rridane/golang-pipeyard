@@ -1,1 +1,2 @@
 .idea/ # JetBrains (IntelliJ, PyCharm, etc.)
+.env*

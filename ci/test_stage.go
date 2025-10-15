@@ -2,62 +2,39 @@ package main
 
 import (
 	"context"
-	"dagger.io/dagger"
-	"fmt"
+	shell_executor "github.com/rridane/golang-pipewire/modules/shell_executor"
+	"github.com/rridane/golang-pipewire/stage_layers"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/kubernetes"
+	"time"
 )
 
 type TestSTage struct {
 }
 
 func (s *TestSTage) Configure(cmd *cobra.Command) {
-	cmd.Use = "deploy <application> <version>"
-	cmd.Short = "Déploie une application sur le cluster"
-	cmd.Long = `Déploie une application sur le cluster Kubernetes.
 
-Arguments:
-  APPLICATION   Nom de l'application à déployer
-  VERSION       Version de l'application`
+	cmd.Use = "test"
+	cmd.Short = "Lance l'ensemble des tests et échoue si un test échoue"
 
-	cmd.Example = `  kubeapp deploy myapp 1.0.0 -n production
-  kubeapp deploy frontend latest --replicas=5 --force`
+	cmd.Flags().Duration("timeout", 30*time.Second, "Timeout en secondes")
 
-	cmd.Args = cobra.ExactArgs(2)
-
-	cmd.Flags().Bool("force", false, "Forcer le déploiement")
-
-	err := cmd.MarkFlagRequired("namespace")
-
-	if err != nil {
-		return
-	}
 }
 
-func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, client *dagger.Client, logger *zap.Logger, tracer *trace.Tracer, k8sClient *kubernetes.Clientset) error {
-	args := cmd.Flags().Args()
-	application := args[0]
-	version := args[1]
+func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, shell *shell_executor.ShellExecutor, meter metric.Meter, tracer *trace.Tracer) error {
 
-	namespace, _ := cmd.Flags().GetString("namespace")
-	replicas, _ := cmd.Flags().GetInt("replicas")
-	force, _ := cmd.Flags().GetBool("force")
+	job := stage_layers.StartNewJobInstrumentation(ctx, "test", tracer, meter, logger)
 
-	logger.Info(fmt.Sprintf("🚀 Déploiement de %s version %s\n", application, version))
-	logger.Info(fmt.Sprintf("📁 Namespace: %s\n", namespace))
-	logger.Info(fmt.Sprintf("🔢 Réplicas: %d\n", replicas))
-	logger.Info(fmt.Sprintf("⚡ Force: %t\n", force))
+	timeout, _ := cmd.Flags().GetDuration("timeout")
 
-	pods, err := k8sClient.CoreV1().Pods(namespace).List(ctx, v1.ListOptions{})
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
 
-	if err != nil {
-		return nil
-	}
+	err := shell.Run(ctx, "cd .. && go test -v cover ./...")
 
-	fmt.Printf(pods.String())
+	job.End(err)
 
-	return nil
+	return err
 }

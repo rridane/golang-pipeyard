@@ -4,18 +4,13 @@ import (
 	"context"
 	"fmt"
 	"github.com/spf13/cobra"
-	"go.opentelemetry.io/otel/metric"
 	"os"
 	"reflect"
 )
 
 type Pipeline struct {
-	rootCmd                 *cobra.Command
-	meter                   metric.Meter
-	commandCalls            metric.Int64Counter
-	duration                metric.Float64Histogram
-	injectors               []any
-	enabledDefaultInjectors []reflect.Type
+	rootCmd   *cobra.Command
+	injectors []any
 }
 
 // PipelineConfig configure l'application
@@ -29,6 +24,7 @@ type PipelineConfig struct {
 
 // RegisterStage enregistre un stage
 func (a *Pipeline) RegisterStage(name string, stage CommandStage) *Pipeline {
+
 	cmd := &cobra.Command{
 		Use:   name,
 		Short: fmt.Sprintf("Exécute la commande %s", name),
@@ -61,7 +57,7 @@ func (a *Pipeline) createRunE(stageName string, stage CommandStage) func(*cobra.
 		dependencies, err := getDependencies(m, injectorMethods, stageName)
 
 		if err != nil {
-			panic(err)
+			return err
 		}
 
 		funcArgs = append(funcArgs, dependencies...)
@@ -84,6 +80,7 @@ func (a *Pipeline) Run() {
 
 // New crée un nouveau pipeline
 func New(config PipelineConfig) *Pipeline {
+
 	rootCmd := &cobra.Command{
 		Use:     config.Name,
 		Short:   config.ShortDescription,

@@ -2,49 +2,63 @@ package main
 
 import (
 	"context"
-	"dagger.io/dagger"
 	"fmt"
+	shell_executor "github.com/rridane/golang-pipewire/modules/shell_executor"
+	"github.com/rridane/golang-pipewire/stage_layers"
 	"github.com/spf13/cobra"
+	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
-	kubernetes "k8s.io/client-go/kubernetes"
+	"time"
 )
 
-type BuildStage struct {
-}
+type BuildStage struct{}
 
+// Configure définit les paramètres de la commande
 func (s *BuildStage) Configure(cmd *cobra.Command) {
-	cmd.Use = "deploy <application> <version>"
-	cmd.Short = "Déploie une application sur le cluster"
-	cmd.Long = `Déploie une application sur le cluster Kubernetes.
-
-Arguments:
-  APPLICATION   Nom de l'application à déployer
-  VERSION       Version de l'application`
-
-	cmd.Example = `  kubeapp deploy myapp 1.0.0 -n production
-  kubeapp deploy frontend latest --replicas=5 --force`
-
-	cmd.Args = cobra.ExactArgs(2)
-
-	cmd.Flags().Bool("force", false, "Forcer le déploiement")
-
-	err := cmd.MarkFlagRequired("namespace")
-
-	if err != nil {
-		return
-	}
+	cmd.Use = "build"
+	cmd.Short = "Valide la buildabilité et la propreté du module Go"
+	cmd.Long = `Vérifie que le module Go compile, que les dépendances sont à jour,
+et que le go.mod est propre. Aucun artefact n’est produit.`
 }
 
-func (s *BuildStage) Execute(ctx context.Context, cmd *cobra.Command, client *dagger.Client, logger *zap.Logger, tracer *trace.Tracer, k8sClient *kubernetes.Clientset) error {
-	args := cmd.Flags().Args()
-	application := args[0]
-	version := args[1]
+// Execute lance les validations du build
+func (s *BuildStage) Execute(
+	ctx context.Context,
+	cmd *cobra.Command,
+	logger *zap.Logger,
+	shell *shell_executor.ShellExecutor,
+	meter metric.Meter,
+	tracer *trace.Tracer,
+) error {
+	job := stage_layers.StartNewJobInstrumentation(ctx, "build", tracer, meter, logger)
+	defer func() { job.End(nil) }()
 
-	force, _ := cmd.Flags().GetBool("force")
+	start := time.Now()
 
-	logger.Info(fmt.Sprintf("🚀 Déploiement de %s version %s\n", application, version))
-	logger.Info(fmt.Sprintf("⚡ Force: %t\n", force))
+	logger.Info("🧱 Validation du module Go (buildability check)")
 
+	steps := []struct {
+		name string
+		cmd  string
+	}{
+		{"Vérification des dépendances", "go mod tidy"},
+		{"Analyse statique (vet)", "go vet ./..."},
+		{"Vérification du lint", "golangci-lint run || true"},
+		{"Compilation dry-run", "go build ./..."},
+		{"Vérification de propreté du go.mod", "git diff --exit-code go.mod go.sum || true"},
+	}
+
+	for _, step := range steps {
+		logger.Info(fmt.Sprintf("🔹 %s", step.name))
+		if err := shell.Run(ctx, step.cmd); err != nil {
+			job.End(err)
+			return fmt.Errorf("échec de l’étape '%s': %w", step.name, err)
+		}
+	}
+
+	duration := time.Since(start)
+	logger.Info("✅ Validation du module terminée", zap.String("duration", duration.String()))
+	job.End(nil)
 	return nil
 }

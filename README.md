@@ -1,255 +1,380 @@
-# Pipewire
+# 🧱 Pipewire – Centralized, Observable CI Pipelines for Go
 
-> **A flexible, type-safe pipeline framework for Go — with dynamic dependency injection and native CLI support.**
-
----
-
-## 🚀 Overview
-
-**Pipewire** lets you define CLI pipelines as modular *stages*, each with its own dependencies, automatically injected at runtime.
-
-It combines the power of:
-
-* 🧩 **Cobra** (for CLI structure)
-* 🧠 **Reflection** (for smart dependency injection)
-* ⚙️ **OpenTelemetry**, **Dagger**, **Kubernetes**, **Terraform**, etc. (through ready-to-use injectors)
-
-The goal: **write composable, observable pipelines — without boilerplate.**
+> **Imagine a pipeline as clean as this for your wonderful project.**  
+> You define your stages in Go.  
+> Your workflows run everywhere — GitHub Actions, GitLab CI, Jenkins, Dagger...  
+> All fully instrumented with OpenTelemetry and auto-wired dependencies.
 
 ---
 
-## ✨ Quick Start
+## 🚀 Example – The dream CI
 
-### 1️⃣ Install
+Let’s imagine your project `mywonderfulproject-cli`, a small Go command-line tool.  
+Here’s how its **GitHub Actions pipeline** looks when powered by Pipewire:
 
+```yaml
+name: 🚀 MyWonderfulProject CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        go-version: [ '1.22', '1.23' ]
+
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache: true
+
+      - name: 🧪 Run tests via Pipewire
+        run: go run ./ci test --timeout 60s
+
+      - name: ⚙️ Validate build via Pipewire
+        run: go run ./ci build
+```
+
+That’s it — just **two stages**.  
+Everything else (logging, tracing, metrics, dependency wiring, OpenTelemetry export…) is handled by Pipewire.
+
+---
+
+## ✨ How it works
+
+Pipewire turns your Go project into a **self-contained CI pipeline**.  
+Each step (`stage`) is a Go struct implementing a simple contract.  
+Pipewire handles orchestration, dependency injection, and observability automatically.
+
+### Stage definition
+
+A stage is any Go struct that implements:
+
+```go
+type Stage interface {
+  Configure(cmd *cobra.Command)
+  Execute(ctx context.Context, cmd *cobra.Command, /* your injected deps */) error
+}
+```
+
+Example:  
+```go
+type BuildStage struct{}
+
+func (s *BuildStage) Configure(cmd *cobra.Command) {
+  cmd.Use = "build"
+  cmd.Short = "Validate Go module buildability"
+}
+
+func (s *BuildStage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, shell *shell_executor.ShellExecutor) error {
+  logger.Info("Building module...")
+  return shell.Run(ctx, "go build ./...")
+}
+```
+
+You register it in your pipeline entrypoint:
+
+```go
+pipe.
+  RegisterStage("test", &TestStage{}).
+  RegisterStage("build", &BuildStage{})
+
+pipe.Run()
+```
+
+When you run `go run ./ci build`, Pipewire:
+- parses CLI args via Cobra,
+- automatically injects all required dependencies,
+- starts an OpenTelemetry span + metrics counters,
+- runs your stage code,
+- and exports all results (logs, traces, metrics) to your configured OTel endpoint.
+
+---
+
+## 📜 Command system (Cobra-powered)
+
+Every **Pipewire pipeline** is a real **command-line application**, powered by [Cobra](https://github.com/spf13/cobra) — the same library used by `kubectl`, `docker`, or `helm`.
+
+Each stage you register automatically becomes a **Cobra command** with:
+- its own description (`Use`, `Short`, `Long`),
+- its own flags (defined in `Configure()`),
+- built-in help (`--help`),
+- and fully typed arguments (`Args: cobra.ExactArgs(n)`).
+
+### Example
+
+```go
+func (s *ReleaseStage) Configure(cmd *cobra.Command) {
+  cmd.Use = "release <version>"
+  cmd.Short = "Publish a new GitHub release"
+  cmd.Long = "Creates and publishes a new release on GitHub with changelog and assets."
+  cmd.Args = cobra.ExactArgs(1)
+  cmd.Flags().Bool("prerelease", false, "Mark release as pre-release")
+  cmd.Flags().Bool("publish", true, "Publish the release instead of draft")
+}
+```
+
+Now, running:
 ```bash
-go get github.com/rridane/pipewire
+go run ./ci release --help
 ```
 
-### 2️⃣ Minimal Example
+Produces:
+```
+Usage:
+  ci release <version> [flags]
 
-```go
-package main
-
-import (
-    "context"
-    "fmt"
-    "github.com/rridane/pipewire"
-    "github.com/spf13/cobra"
-)
-
-type HelloStage struct{}
-
-func (s *HelloStage) Configure(cmd *cobra.Command) {
-    cmd.Use = "hello <name>"
-    cmd.Short = "Print a greeting"
-    cmd.Args = cobra.ExactArgs(1)
-}
-
-func (s *HelloStage) Execute(ctx context.Context, cmd *cobra.Command) error {
-    name := cmd.Flags().Args()[0]
-    fmt.Printf("👋 Hello, %s!\n", name)
-    return nil
-}
-
-func main() {
-    pipeline := pipewire.New(pipewire.PipelineConfig{
-        Name: "demo",
-    })
-
-    pipeline.RegisterStage("hello", &HelloStage{})
-    pipeline.Run()
-}
+Flags:
+      --prerelease   Mark release as pre-release
+      --publish       Publish the release instead of draft
+  -h, --help          Help for release
 ```
 
-🧠 Run it:
+✅ You don’t need to handle `os.Args` or flag parsing — Pipewire automatically creates and links your commands,  
+generates the CLI help, and binds them to their corresponding stages.
 
-```bash
-go run . hello World
-```
+Behind the scenes:
+- `PipelineProvider.New()` builds a root Cobra command (your main CLI).
+- Each call to `RegisterStage("name", stage)` attaches a subcommand.
+- When you run `go run ./ci <stage>`, Cobra executes the correct handler and Pipewire injects dependencies automatically.
 
-Output:
-
-```bash
-👋 Hello, World!
-```
+This makes Pipewire not only a **CI orchestrator**, but also a **CLI framework** for defining instrumented pipelines.
 
 ---
 
-## 🧩 Advanced Example with Native Injectors
+## ⚙️ Dependency injection – zero boilerplate
 
-Pipewire provides optional **native injectors** to integrate directly with your tools.
+Each stage declares **only what it needs** in its `Execute()` parameters.  
+Pipewire resolves and injects everything at runtime.
 
+### Example
 ```go
-import (
-    "context"
-    "fmt"
-    "dagger.io/dagger"
-    "github.com/rridane/pipewire"
-    "github.com/rridane/pipewire/injectors"
-    "github.com/spf13/cobra"
-    "go.uber.org/zap"
-    v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-    "k8s.io/client-go/kubernetes"
-)
-
-type DeployStage struct{}
-
-func (s *DeployStage) Configure(cmd *cobra.Command) {
-    cmd.Use = "deploy <app> <version>"
-    cmd.Args = cobra.ExactArgs(2)
-    cmd.Flags().StringP("namespace", "n", "default", "Kubernetes namespace")
-}
-
-func (s *DeployStage) Execute(
-    ctx context.Context,
-    cmd *cobra.Command,
-    client *dagger.Client,
-    logger *zap.Logger,
-    k8s *kubernetes.Clientset,
-) error {
-    app := cmd.Flags().Args()[0]
-    version := cmd.Flags().Args()[1]
-    ns, _ := cmd.Flags().GetString("namespace")
-
-    logger.Info(fmt.Sprintf("🚀 Deploying %s:%s in %s", app, version, ns))
-
-    pods, err := k8s.CoreV1().Pods(ns).List(ctx, v1.ListOptions{})
-    if err != nil {
-        return err
-    }
-
-    fmt.Println(pods.String())
-    return nil
-}
-
-func main() {
-    pipe := pipewire.New(pipewire.PipelineConfig{
-        Name:      "ci_pipeline",
-        Injectors: []any{&injectors.DaggerInjector{}, &injectors.LoggerInjector{}, &injectors.K8sInjector{}},
-    })
-
-    pipe.RegisterStage("deploy", &DeployStage{})
-    pipe.Run()
-}
+func (s *TestStage) Execute(
+  ctx context.Context,
+  cmd *cobra.Command,
+  logger *zap.Logger,
+  shell *shell_executor.ShellExecutor,
+  meter metric.Meter,
+  tracer *trace.Tracer,
+) error { ... }
 ```
 
-✅ Automatically injected:
-
-* 🧱 Dagger client
-* 📜 Zap logger
-* ☸️ Kubernetes client-go
+No setup, no wiring, no globals.  
+Pipewire detects each argument’s type and automatically provides it.
 
 ---
 
-## 🧠 Create Your Own Injector
+## 🧩 Built-in injectors
 
-Adding a new dependency injector is as simple as implementing this interface:
+| Injector | Type Injected | Description | Env vars |
+|-----------|----------------|--------------|-----------|
+| **LoggerInjector** | `*zap.Logger` | Structured JSON logger with optional OTel export | `OTEL_EXPORTER_OTLP_ENDPOINT`, `LOG_LEVEL` |
+| **TracerInjector** | `*trace.Tracer` | OpenTelemetry tracer for spans | `OTEL_EXPORTER_OTLP_ENDPOINT`, `OTEL_SERVICE_NAME` |
+| **MeterInjector** | `metric.Meter` | OTel metrics provider | `OTEL_EXPORTER_OTLP_ENDPOINT` |
+| **ShellExecutorInjector** | `*ShellExecutor` | Safe command runner (stdout/stderr + context) | — |
+| **GitHubReleaseInjector** | `*github_releases.ReleaseFactory` | High-level SDK for GitHub release management | `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO` |
+| **DaggerInjector** | `*dagger.Client` | Dagger client for containerized builds | `DAGGER_CLOUD_TOKEN` |
+| **K8sInjector** | `*kubernetes.Clientset` | Access to Kubernetes cluster (for CD use cases) | `KUBECONFIG`, `K8S_NAMESPACE` |
+
+### 💡 Recommended configuration practice
+
+Pipewire recommends configuring injectors **using environment variables** at initialization time.  
+This ensures reproducibility across local development, CI pipelines, and production environments.
+
+Example:
 
 ```go
-type DependencyInjector[T any] interface {
-    Inject(stageName string) *T
+&injectors.LoggerInjector{
+  ServiceName:              os.Getenv("SERVICE_NAME"),
+  EnableOtelExport:         true,
+  OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+  LogLevel:                 os.Getenv("LOG_LEVEL"),
 }
 ```
 
-Example — a **GitHub API client injector**:
+💬 This makes the pipeline portable and CI-friendly:  
+GitHub Actions, Jenkins, or Dagger can simply set environment variables, and your injectors automatically adapt.
+
+---
+
+## 🧠 What’s an “Injector”?
+
+An **Injector** is a small struct responsible for configuring and providing a dependency.  
+It can wrap any internal module or third-party library (Zap, OpenTelemetry, Kubernetes, Dagger…).
+
+Each injector exposes a single public method:
 
 ```go
-package injectors
+type LoggerInjector struct {
+  ServiceName string
+  LogLevel string
+  EnableOtelExport bool
+  OtelExporterOtlpEndpoint string
+}
 
-import "github.com/google/go-github/v66/github"
+func (l *LoggerInjector) Inject(stageName string) *zap.Logger { ... }
+```
 
-type GitHubInjector struct{}
+When a stage declares a `*zap.Logger` argument,  
+Pipewire calls all injectors until one returns a non-nil value of that type.
 
-func (g *GitHubInjector) Inject(stageName string) *github.Client {
-    return github.NewClient(nil)
+This gives you:
+- per-stage configuration,
+- no global state,
+- predictable, testable dependencies.
+
+---
+
+## 🔧 Create your own injector
+
+To make your pipeline plug-in friendly, you can define your own injectors.
+
+Example:  
+Injecting a configured HTTP client with retry + metrics:
+
+```go
+type HttpClientInjector struct {
+  Timeout time.Duration
+}
+
+func (i *HttpClientInjector) Inject(stageName string) *http.Client {
+  return &http.Client{
+    Timeout: i.Timeout,
+  }
 }
 ```
 
 Then register it in your pipeline:
 
 ```go
-pipe := pipewire.New(pipewire.PipelineConfig{
-    Name: "ci_pipeline",
-    Injectors: []any{
-        &injectors.LoggerInjector{},
-        &injectors.GitHubInjector{},
-    },
+pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
+  Name: "ci_pipeline",
+  Injectors: []any{
+    &injectors.LoggerInjector{...},
+    &injectors.TracerInjector{...},
+    &HttpClientInjector{Timeout: 5 * time.Second},
+  },
 })
 ```
 
-And just declare the dependency in your stage:
+Now, any stage can simply declare:
 
 ```go
-func (s *ReleaseStage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, gh *github.Client) error {
-    logger.Info("Creating GitHub release...")
-    // Use gh.Repositories.CreateRelease(...)
-    return nil
+func (s *ApiTestStage) Execute(ctx context.Context, client *http.Client, logger *zap.Logger) error {
+  resp, _ := client.Get("https://api.example.com/health")
+  logger.Info("Response received", zap.Int("status", resp.StatusCode))
+  return nil
 }
 ```
 
----
-
-## 🧩 Built-in Injectors
-
-| Injector            | Type                    | Description                           |
-| ------------------- | ----------------------- | ------------------------------------- |
-| `DaggerInjector`    | `*dagger.Client`        | Build & deploy containers via Dagger  |
-| `LoggerInjector`    | `*zap.Logger`           | Structured logging with stage context |
-| `TracerInjector`    | `*trace.Tracer`         | OpenTelemetry tracing support         |
-| `K8sInjector`       | `*kubernetes.Clientset` | Kubernetes client-go access           |
-| `TerraformInjector` | `*tfexec.Terraform`     | Run Terraform programmatically        |
-| `HelmInjector`      | `*action.Configuration` | Use Helm programmatically             |
+No setup. No configuration duplication.
 
 ---
 
-## ⚡ Debug & Validation
+## 🧭 Full working example
 
-Pipewire validates all injectors at runtime:
+### Directory structure
+```
+ci/
+├── main.go
+├── test_stage.go
+├── build_stage.go
+├── release_stage.go
+```
+
+### `main.go`
+```go
+package main
+
+import (
+  "github.com/rridane/golang-pipewire"
+  "github.com/rridane/golang-pipewire/injectors"
+)
+
+func main() {
+  pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
+    Name: "ci_pipeline",
+    Version: "1.0.0",
+    Injectors: []any{
+      &injectors.LoggerInjector{ServiceName: "pipewire"},
+      &injectors.TracerInjector{ServiceName: "pipewire"},
+      &injectors.ShellExecutorInjector{},
+      &injectors.MeterInjector{ServiceName: "pipewire"},
+    },
+  })
+
+  pipe.
+    RegisterStage("test", &TestStage{}).
+    RegisterStage("build", &BuildStage{}).
+    RegisterStage("release", &ReleaseStage{})
+
+  pipe.Run()
+}
+```
+
+### Run locally
+```bash
+go run ./ci test
+go run ./ci build
+go run ./ci release v1.0.0 --publish
+```
+
+### Or run in GitHub Actions
+```yaml
+- name: 🧪 Test
+  run: go run ./ci test
+
+- name: ⚙️ Build
+  run: go run ./ci build
+
+- name: 🚀 Release
+  if: startsWith(github.ref, 'refs/tags/')
+  run: go run ./ci release ${GITHUB_REF#refs/tags/} --publish
+```
+
+---
+
+## 📊 Observability baked-in
+
+Every stage automatically emits:
+- **Traces** (OpenTelemetry spans)
+- **Metrics** (durations, counts)
+- **Logs** (structured JSON with context)
+
+You can connect to any OTLP endpoint:  
+Prometheus, Grafana Cloud, SigNoz, Datadog, Tempo, or your own collector.
 
 ```bash
-❌ *MyBadInjector.Inject must have exactly one string parameter
-❌ *MyOtherInjector.Inject must return a pointer
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4317
 ```
 
-No surprises at execution — everything is type-checked and validated.
+All data is correlated per stage (`test`, `build`, `release`).
 
 ---
 
-## 🧠 Philosophy
+## 🧠 Summary
 
-* **Explicit over implicit** → no hidden runtime magic
-* **Composable** → plug your tools easily
-* **Observability-first** → metrics & tracing included
-* **Type-safe** → only pointers of known types are injected
-
-Pipewire is designed for **Platform Engineers, DevOps, and Infra Developers** who want to build internal developer tools that scale.
-
----
-
-## 📦 Example Folder Layout
-
-```text
-.
-├── main.go
-├── injectors/
-│   ├── dagger.go
-│   ├── logger.go
-│   ├── k8s.go
-│   ├── terraform.go
-│   └── helm.go
-└── stages/
-    ├── deploy.go
-    ├── build.go
-    └── test.go
-```
+✅ Centralized orchestration of all your pipelines  
+✅ Same CLI and CI syntax (`go run ./ci <stage>`)  
+✅ Automatic dependency injection  
+✅ Built-in observability  
+✅ Extensible with your own injectors  
+✅ Portable across any CI/CD system  
 
 ---
 
-## 🧰 License
+## 🌀 Self-hosted pipeline
 
-MIT License © 2025 [R. Ridane](https://github.com/rridane)
-
----
-
-**Pipewire — Compose. Inject. Run.**
+Pipewire is self-powered: it **uses its own pipeline** to run its tests, build validations, and GitHub releases.  
+You can explore the folder [`ci/`](./ci) inside this repository to see how its own stages (`test`, `build`, `release`) are implemented — and use it as a reference to build your own.
