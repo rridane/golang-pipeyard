@@ -96,7 +96,7 @@ func main() {
     err := godotenv.Overload(".env")
 
     if err != nil {
-        log.Println("Aucun fichier .env trouvé, utilisation des variables système")
+        log.Println("not found .env, use env variables")
     }
 
     // 🧭 Configure injectors
