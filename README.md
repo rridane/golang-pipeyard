@@ -85,8 +85,10 @@ Once your stages are defined, pipeyard lets you **assemble them into a real comm
 
 You do this in a `main.go` file — typically in a `ci/` folder — where you create a pipeline and register your stages.
 
+
 Example:
 
+> **_NOTE:_** We will explain in detail injectors
 
 ```go
 func main() {
@@ -159,7 +161,6 @@ func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injector
 - with OpenTelemetry export,
 - and proper cleanup at the end.
 
-> **_NOTE:_** We will explain in detail injectors
 
 ## 🧠 Cobra Integration
 
