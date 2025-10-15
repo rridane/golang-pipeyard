@@ -7,10 +7,79 @@
 > All fully instrumented with OpenTelemetry and auto-wired dependencies.
 ---
 
+# 🚀 Example
+
+Let’s imagine your project mywonderfuljavaproject-cli, a small Go-powered CLI that drives your Java build system.
+
+Here’s what your perfect pipeline looks like before plugging it into GitHub Actions, Azure DevOps, or Jenkins:
+
+```bash
+# 🏗️  1. Clean & Prepare Environment
+mywonderfuljavaproject-cli prepare --java-version=21 --maven-version=3.9.6 --cache=true
+
+# 🧪  2. Run Unit & Integration Tests
+mywonderfuljavaproject-cli test --scope=unit,integration--coverage-threshold=80 --reports-dir=build/reports/tests --timeout=5m
+
+# 🔍  3. Run Static Analysis (Lint + SCA)
+mywonderfuljavaproject-cli lint --tools=spotbugs,checkstyle,owasp
+
+# ⚙️  4. Build Artifact (JAR + Docker)
+mywonderfuljavaproject-cli build --module=mywonderfulproject-service --dockerfile=Dockerfile --image=ghcr.io/myorg/mywonderfulproject:x.x.x --platform=linux/amd64,linux/arm64
+
+# 📦  5. Publish Artifact to Registry
+mywonderfuljavaproject-cli publish --registry=ghcr.io/myorg --image=ghcr.io/myorg/mywonderfulproject:latest --push=true --sign=true --provenance=true
+
+# ☸️  6. Deploy to Kubernetes
+mywonderfuljavaproject-cli deploy --cluster=staging --namespace=mywonderfulproject --manifest=k8s/deployment.yaml --set image.tag=$(git rev-parse --short HEAD) --timeout=3m --wait=true
+
+# ======================================
+mywonderfuljavaproject-cli verify --smoke=true --endpoint=https://staging.mywonderfulproject.internal/healthz --expect-status=200 --timeout=2m
+```
+
+And then, you can use it as-is inside your favorite CI provider — no duplicate logic, no YAML drift:
+
+```yaml
+name: 🚀 MyWonderfulProject CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📦 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+
+      # Run tests via your unified PipeYard-based CLI
+      - name: 🧪 Run tests
+        run: mywonderfuljavaproject-cli test --scope=unit,integration--coverage-threshold=80 --reports-dir=build/reports/tests --timeout=5m
+
+      # Build via the same unified CLI (re-uses the exact Go pipeline)
+      - name: ⚙️ Build
+        run: mywonderfuljavaproject-cli build --module=mywonderfulproject-service --dockerfile=Dockerfile --image=ghcr.io/myorg/mywonderfulproject:x.x.x --platform=linux/amd64,linux/arm64
+      #...
+```
+
+Now imagine you could simply declare each stage in Go — define its parameters, its inputs and outputs — and PipeYard would automatically compile this CLI for you.
+
+That’s exactly what **PipeYard** enables 
+
+> a **unified, observable, cross‑CI pipeline**, deployable anywhere.
+
+Let's dive in.
+
 ## 🚀 Example
 
-Let’s imagine your project `mywonderfulproject-cli`, a small Go CLI tool.
-Here’s how its GitHub Actions pipeline looks when powered by pipeyard:
 
 ```yaml
 name: 🚀 MyWonderfulProject CI
