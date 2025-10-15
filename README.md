@@ -1,4 +1,4 @@
-# 🧱 pipeyard – Centralized, Observable CI Pipelines for Go
+🧱 PipeYard — Centralized, Cross-Platform CI Orchestration in Go
 
 > **Imagine a pipeline as clean as this for your Go project.**
 >
