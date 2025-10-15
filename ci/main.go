@@ -10,6 +10,7 @@ import (
 	"os"
 )
 
+```go`
 func main() {
 
 	ctx := context.Background()
@@ -20,22 +21,7 @@ func main() {
 		log.Println("Aucun fichier .env trouvé, utilisation des variables système")
 	}
 
-	tracerInjector := injectors.TracerInjector{
-		ServiceName:              "pipewire",
-		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-	}
-
-	telemetryLoggerInjector := injectors.TelemetryLoggerInjector{
-		ServiceName:              "pipewire",
-		EnableOtelExport:         true,
-		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-		LogLevel:                 zapcore.InfoLevel,
-	}
-
-	meterInjector := injectors.MeterInjector{
-		ServiceName:              "pipewire",
-		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
-	}
+	tracerInjector, telemetryLoggerInjector, meterInjector := getInjectors()
 
 	pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
 		Name:             "ci_pipeline",
@@ -62,3 +48,27 @@ func main() {
 	meterInjector.Shutdown(ctx)
 
 }
+
+func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injectors.TelemetryLoggerInjector) {
+
+	tracerInjector := injectors.TracerInjector{
+		ServiceName:              "pipewire",
+		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+	}
+
+	telemetryLoggerInjector := injectors.TelemetryLoggerInjector{
+		ServiceName:              "pipewire",
+		EnableOtelExport:         true,
+		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		LogLevel:                 zapcore.InfoLevel,
+	}
+
+	meterInjector := injectors.MeterInjector{
+		ServiceName:              "pipewire",
+		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+	}
+
+	return tracerInjector, meterInjector, telemetryLoggerInjector
+
+}
+```
