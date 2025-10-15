@@ -9,9 +9,9 @@
 
 # 🚀 Example
 
-Let’s imagine your project mywonderfuljavaproject-cli, a small Go-powered CLI that drives your Java build system.
+Let’s imagine a project named **MyWonderfulJavaProject**, which uses a small Go-powered CLI tool called **mywonderfuljavaproject-cli** to manage and streamline its build process.
 
-Here’s what your perfect pipeline looks like before plugging it into GitHub Actions, Azure DevOps, or Jenkins:
+Here’s what the perfect pipeline looks like before plugging it into GitHub Actions, Azure DevOps, or Jenkins:
 
 ```bash
 # 🏗️  1. Clean & Prepare Environment
