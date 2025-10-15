@@ -72,9 +72,9 @@ jobs:
 
 Now imagine you could simply declare each stage in Go — define its parameters, its inputs and outputs — and PipeYard would automatically compile this CLI for you.
 
-That’s exactly what **PipeYard** enables 
+That’s exactly what **PipeYard** enables :
 
-> a **unified, observable, cross‑CI pipeline**, deployable anywhere.
+> a **unified**, **observable**, **cross-platform CI orchestration framework**, written in Go.
 
 Let's dive in.
 
