@@ -78,40 +78,6 @@ That’s exactly what **PipeYard** enables
 
 Let's dive in.
 
-## 🚀 Example
-
-
-```yaml
-name: 🚀 MyWonderfulProject CI
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
-
-jobs:
-  pipeline:
-    runs-on: ubuntu-latest
-    steps:
-      - name: 📦 Checkout
-        uses: actions/checkout@v4
-
-      - name: 🧰 Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.24'
-
-      - name: 🧪 Run tests via pipeyard
-        run: go run ./ci test --timeout 60s
-
-      - name: ⚙️ Build via pipeyard
-        run: go run ./ci build
-```
-
----
-
 ## ✨ How it works
 
 pipeyard turns your Go project into a **self-contained, observable CI pipeline**.
