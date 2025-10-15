@@ -15,25 +15,25 @@ Here’s what your perfect pipeline looks like before plugging it into GitHub Ac
 
 ```bash
 # 🏗️  1. Clean & Prepare Environment
-mywonderfuljavaproject-cli prepare --java-version=21 --maven-version=3.9.6 --cache=true
+mywonderfuljavaproject-cli prepare --maven-version=3.9.6
 
 # 🧪  2. Run Unit & Integration Tests
-mywonderfuljavaproject-cli test --scope=unit,integration--coverage-threshold=80 --reports-dir=build/reports/tests --timeout=5m
+mywonderfuljavaproject-cli test --reports-dir=build/reports/tests --timeout=5m
 
 # 🔍  3. Run Static Analysis (Lint + SCA)
-mywonderfuljavaproject-cli lint --tools=spotbugs,checkstyle,owasp
+mywonderfuljavaproject-cli lint --tools=spotbugs
 
 # ⚙️  4. Build Artifact (JAR + Docker)
-mywonderfuljavaproject-cli build --module=mywonderfulproject-service --dockerfile=Dockerfile --image=ghcr.io/myorg/mywonderfulproject:x.x.x --platform=linux/amd64,linux/arm64
+mywonderfuljavaproject-cli build --dockerfile=Dockerfile --image=ghcr.io/myorg/mywonderfulproject:x.x.x --platform=linux/amd64,linux/arm64
 
 # 📦  5. Publish Artifact to Registry
-mywonderfuljavaproject-cli publish --registry=ghcr.io/myorg --image=ghcr.io/myorg/mywonderfulproject:latest --push=true --sign=true --provenance=true
+mywonderfuljavaproject-cli publish --image=ghcr.io/myorg/mywonderfulproject:latest --push=true --sign=true
 
 # ☸️  6. Deploy to Kubernetes
-mywonderfuljavaproject-cli deploy --cluster=staging --namespace=mywonderfulproject --manifest=k8s/deployment.yaml --set image.tag=$(git rev-parse --short HEAD) --timeout=3m --wait=true
+mywonderfuljavaproject-cli deploy --cluster=staging --namespace=mywonderfulproject --manifest=k8s/deployment.yaml
 
 # ======================================
-mywonderfuljavaproject-cli verify --smoke=true --endpoint=https://staging.mywonderfulproject.internal/healthz --expect-status=200 --timeout=2m
+mywonderfuljavaproject-cli verify --smoke=true --endpoint=https://staging.mywonderfulproject.internal/healthz --timeout=2m
 ```
 
 And then, you can use it as-is inside your favorite CI provider — no duplicate logic, no YAML drift:
