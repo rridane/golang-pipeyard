@@ -10,7 +10,6 @@ import (
 	"os"
 )
 
-```go`
 func main() {
 
 	ctx := context.Background()
@@ -71,4 +70,3 @@ func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injector
 	return tracerInjector, meterInjector, telemetryLoggerInjector
 
 }
-```
