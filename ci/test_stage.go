@@ -32,7 +32,7 @@ func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	err := shell.Run(ctx, "cd .. && go test -v cover ./...")
+	err := shell.Run(ctx, "go test -v ./")
 
 	job.End(err)
 

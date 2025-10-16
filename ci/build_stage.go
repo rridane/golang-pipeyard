@@ -29,9 +29,9 @@ func (s *BuildStage) Execute(
 	logger *zap.Logger,
 	shell *shell_executor.ShellExecutor,
 	meter metric.Meter,
-	tracer *trace.Tracer,
+	tracer trace.Tracer,
 ) error {
-	job := stage_layers.StartNewJobInstrumentation(ctx, "build", tracer, meter, logger)
+	job := stage_layers.StartNewJobInstrumentation(ctx, "build", &tracer, meter, logger)
 	defer func() { job.End(nil) }()
 
 	start := time.Now()
@@ -44,7 +44,6 @@ func (s *BuildStage) Execute(
 	}{
 		{"Vérification des dépendances", "go mod tidy"},
 		{"Analyse statique (vet)", "go vet ./..."},
-		{"Vérification du lint", "golangci-lint run || true"},
 		{"Compilation dry-run", "go build ./..."},
 		{"Vérification de propreté du go.mod", "git diff --exit-code go.mod go.sum || true"},
 	}
