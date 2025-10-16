@@ -23,9 +23,9 @@ func (s *TestSTage) Configure(cmd *cobra.Command) {
 
 }
 
-func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, shell *shell_executor.ShellExecutor, meter metric.Meter, tracer *trace.Tracer) error {
+func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, shell *shell_executor.ShellExecutor, meter metric.Meter, tracer trace.Tracer) error {
 
-	job := stage_layers.StartNewJobInstrumentation(ctx, "test", tracer, meter, logger)
+	job := stage_layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
 
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 

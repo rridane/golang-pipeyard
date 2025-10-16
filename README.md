@@ -536,3 +536,125 @@ Output:
 ---
 
 Enjoy a fully observable, programmable CI pipeline — all in Go. 🚀
+
+# 🧩 Multi-Project Architecture with Pipeyard
+> _Rethinking CI/CD as a Product_
+
+## 🚀 Vision
+
+Instead of treating CI pipelines as ephemeral YAML scripts hidden inside each repository,  
+**Pipeyard** turns them into **first-class deliverables** — versioned, observable, and reusable across multiple projects.
+
+Each CI becomes its own **product**:
+- **Versioned** (semantic versioning, releases, changelogs)
+- **Observable** (traces, logs, metrics via OpenTelemetry)
+- **Configurable** (feature-flagged behavior via Unleash)
+- **Portable** (binary executable used in any CI system)
+
+This approach allows your organization to **centralize and standardize** pipelines while keeping per-project customization through flags and configuration.
+
+---
+
+## 🏗️ Recommended Architecture
+
+We recommend a **monorepo architecture** dedicated to your internal CI tooling:
+
+```
+pipeyard/
+├── shared/
+│   ├── injectors/
+│   ├── stages/
+│   │   ├── java-pipeline/
+│   │   │   ├── java_build_stage.go
+│   │   │   ├── java_test_stage.go
+│   │   │   └── java_release_stage.go
+│   │   ├── python-pipeline/
+│   │   ├── flutter-pipeline/
+│   ├── stage_layers/
+│   └── modules/
+└── project_pipelines/
+    ├── project1/
+    │   ├── main.go
+    │   ├── project1_build_stage.go
+    │   ├── project1_test_stage.go
+    │   └── project1_release_stage.go
+    ├── project2/
+    └── project3/
+```
+
+Each folder under `project_pipelines/` represents a **fully self-contained pipeline**, versioned and released as a binary.
+
+Example:
+```bash
+go build -o bin/project1-ci ./project_pipelines/project1
+```
+
+You can then **publish** these binaries in GitHub Releases or your internal artifact registry.
+
+---
+
+## 🧩 Composition Logic
+
+Each `project_pipelines/` entry imports shared building blocks from the `shared/` directory:
+
+- **Injectors** → define common runtime dependencies (tracing, logging, metrics, shell, etc.)
+- **Stages** → implement reusable actions like `build`, `test`, `release`
+- **Stage layers / modules** → provide intermediate logic or integrations (e.g., Docker, Helm, Terraform, GitHub)
+
+This ensures every project pipeline inherits the same foundation but remains fully customizable.
+
+## 🔁 Usage in external projects
+
+In each project’s CI (GitHub Actions, GitLab, Jenkins…),  
+you simply **download and run the right CI binary**.
+
+### Example (GitHub Actions)
+
+```yaml
+before_script:
+  - curl -sL https://github.com/your-org/pipeyard/releases/download/v1.2.0/java-ci -o /usr/local/bin/java-ci
+  - chmod +x /usr/local/bin/java-ci
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧪 Run tests
+        run: java-ci test
+      - name: ⚙️ Build
+        run: java-ci build
+      - name: 🚀 Release
+        run: java-ci release v1.2.0 --publish
+```
+
+Each pipeline binary can expose feature flags or toggles via **Unleash**:
+
+```bash
+UNLEASH_URL=https://unleash.company.com \
+UNLEASH_API_TOKEN=$TOKEN \
+project1-ci build
+```
+
+Flags can enable experimental stages, additional linting, new deployment modes, etc.
+
+---
+
+## 🧠 CI as a Product
+
+By packaging each pipeline as a **deliverable**, you gain:
+
+| Benefit | Description                                                      |
+|----------|------------------------------------------------------------------|
+| **Consistency** | All projects follow the same validated stages and best practices |
+| **Observability** | Unified telemetry (traces, logs, metrics) across every CI        |
+| **Reusability** | Pipelines are built once, used everywhere                        |
+| **Feature-Flagging** | Progressive rollout of new CI features via Unleash               |
+| **Governance** | Versioned, testable, and reviewable pipelines                    |
+| **Developer Experience** | Local runs: `./project1-ci build` works exactly like the CI      |
+
+---
+
+## 🌍 Result
+
+By adopting this model, you create a **governed, scalable, and observable CI ecosystem** —
+where every pipeline behaves like a product: versioned, tested, instrumented, and continuously improved.
