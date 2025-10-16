@@ -1,7 +1,7 @@
 package issue_filters
 
 import (
-	"github.com/xanzy/go-gitlab"
+	"gitlab.com/gitlab-org/api/client-go"
 )
 
 type Status string

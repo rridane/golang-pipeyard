@@ -1,2 +1,9 @@
-.idea/ # JetBrains (IntelliJ, PyCharm, etc.)
+# JetBrains / IDE
+.idea/
+
+# Environnements
+.env
 .env*
+
+# OpenTelemetry local dev
+examples/_otel_local/data/

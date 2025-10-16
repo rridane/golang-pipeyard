@@ -17,7 +17,7 @@ type TracerInjector struct {
 	provider    trace.TracerProvider
 	// otel grpc exporter endpoint
 	OtelExporterOtlpEndpoint string
-	insecure                 bool
+	Insecure                 bool
 }
 
 func (t *TracerInjector) Inject(stageName string) trace.Tracer {
@@ -39,7 +39,7 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 
 	options := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(endpoint)}
 
-	if t.insecure {
+	if t.Insecure {
 		options = append(options, otlptracegrpc.WithInsecure())
 	}
 

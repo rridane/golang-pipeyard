@@ -53,6 +53,7 @@ func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injector
 	tracerInjector := injectors.TracerInjector{
 		ServiceName:              "pipeyard",
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Insecure:                 true,
 	}
 
 	telemetryLoggerInjector := injectors.TelemetryLoggerInjector{
@@ -60,11 +61,13 @@ func getInjectors() (injectors.TracerInjector, injectors.MeterInjector, injector
 		EnableOtelExport:         true,
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
 		LogLevel:                 zapcore.InfoLevel,
+		OtelInsecure:             true,
 	}
 
 	meterInjector := injectors.MeterInjector{
 		ServiceName:              "pipeyard",
 		OtelExporterOtlpEndpoint: os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT"),
+		Insecure:                 true,
 	}
 
 	return tracerInjector, meterInjector, telemetryLoggerInjector

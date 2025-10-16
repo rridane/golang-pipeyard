@@ -1,6 +1,6 @@
 package common_filters
 
-import "github.com/xanzy/go-gitlab"
+import "gitlab.com/gitlab-org/api/client-go"
 
 type OrderByFilter struct {
 	OrderBy string

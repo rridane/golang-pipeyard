@@ -18,7 +18,7 @@ type MeterInjector struct {
 	provider    metric.MeterProvider
 	// otel grpc exporter endpoint
 	OtelExporterOtlpEndpoint string
-	insecure                 bool
+	Insecure                 bool
 }
 
 func (m *MeterInjector) Inject(stageName string) metric.Meter {
@@ -39,7 +39,7 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 
 	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
 
-	if m.insecure {
+	if m.Insecure {
 		options = append(options, otlpmetricgrpc.WithInsecure())
 	}
 

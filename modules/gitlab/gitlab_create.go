@@ -3,7 +3,6 @@ package gitlab_utils
 import (
 	"fmt"
 	"github.com/xanzy/go-gitlab"
-	"i4c/modules/utils"
 )
 
 func (g *GitlabUtils) CreateTag(t Tag) Tag {
@@ -21,7 +20,7 @@ func (g *GitlabUtils) CreateTag(t Tag) Tag {
 	_, _, err = client.Tags.CreateTag(g.ProjectId, ro)
 
 	if err != nil {
-		panic(err)
+		fmt.Printf("❌ Erreur lors de la création du tag %s: %v\n", t.Name, err)
 	}
 
 	return t
@@ -57,7 +56,9 @@ func (g *GitlabUtils) CreateReleaseLink(l []Link, tag string) {
 
 	client, err := gitlab.NewClient(g.Token, gitlab.WithBaseURL(GitlabUrl+":"+GitlabPort))
 
-	utils.HandleErr(err, true)
+	if err != nil {
+		fmt.Printf("Unable to create a client : %s", err)
+	}
 
 	for _, li := range l {
 
@@ -75,8 +76,8 @@ func (g *GitlabUtils) CreateReleaseLink(l []Link, tag string) {
 
 		_, _, err := client.ReleaseLinks.CreateReleaseLink(g.ProjectId, tag, &l)
 
-		utils.HandleErr(err, false)
+		if err != nil {
+			fmt.Printf("Unable to create release link : %s", err)
+		}
 	}
 }
-
-

@@ -1,9 +1,9 @@
 package common_filters
 
-import "github.com/xanzy/go-gitlab"
+import "gitlab.com/gitlab-org/api/client-go"
 
 type PaginationFilter struct {
-	Page int
+	Page    int
 	PerPage int
 }
 

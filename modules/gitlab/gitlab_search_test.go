@@ -2,21 +2,21 @@ package gitlab_utils
 
 import (
 	"fmt"
-	"i4c/modules/gitlab/common_filters"
-	"i4c/modules/gitlab/issue_filters"
+	common_filters "github.com/rridane/golang-pipeyard/modules/gitlab/common_filters"
+	issue_filters "github.com/rridane/golang-pipeyard/modules/gitlab/issue_filters"
 	"testing"
 	"time"
 )
 
 func TestGetIssuesFromGitlab(t *testing.T) {
-	
+
 	g := GitlabUtils{
 		ProjectId: "2136",
 		Token:     "6xuy7K7NTYSmStxkgHZM",
 	}
 
 	timeStart, _ := time.Parse(time.RFC3339, "2023-02-22T06:00:00.000+00:00")
-	timeEnd, _:= time.Parse(time.RFC3339, "2023-02-22T10:00:00.000+00:00")
+	timeEnd, _ := time.Parse(time.RFC3339, "2023-02-22T10:00:00.000+00:00")
 
 	dateSpec := issue_filters.DateIssueFilter{
 		UpdatedAfter:  timeStart,
@@ -50,7 +50,7 @@ func TestGetIssuesFromGitlab(t *testing.T) {
 func TestGetTagsFromGitlab(t *testing.T) {
 
 	orderby := common_filters.OrderByFilter{
-		"updated",
+		OrderBy: "updated",
 	}
 
 	pagination := common_filters.PaginationFilter{

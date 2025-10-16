@@ -1,7 +1,7 @@
 package issue_filters
 
 import (
-	"github.com/xanzy/go-gitlab"
+	"gitlab.com/gitlab-org/api/client-go"
 	"time"
 )
 
@@ -10,11 +10,10 @@ type DateIssueFilter struct {
 	UpdatedBefore time.Time
 }
 
-
 func (d *DateIssueFilter) ToListProjectIssuesOptions() gitlab.ListProjectIssuesOptions {
 
 	return gitlab.ListProjectIssuesOptions{
-		UpdatedAfter: &d.UpdatedAfter,
+		UpdatedAfter:  &d.UpdatedAfter,
 		UpdatedBefore: &d.UpdatedBefore,
 	}
 
