@@ -43,7 +43,8 @@ func main() {
 	pipe.
 		RegisterStage("test", &TestSTage{}).
 		RegisterStage("build", &BuildStage{}).
-		RegisterStage("release", &ReleaseStage{})
+		RegisterStage("release", &ReleaseStage{}).
+		RegisterStage("buildDockerImage", &BuildDockerStage{})
 	pipe.Run()
 
 	tracerInjector.Shutdown(ctx)

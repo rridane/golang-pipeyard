@@ -12,25 +12,22 @@ jobs:
     name: 🧩 pipeyard CI Pipeline
     runs-on: ubuntu-latest
 
+    container:
+      image: ghcr.io/rridane/pipeyard-ci:latest
+      options: --privileged
+      env:
+        DOCKER_BUILDKIT: "1"
+        BUILDKITD_FLAGS: "--oci-worker-no-process-sandbox"
+
     strategy:
       matrix:
-        go-version: [ '1.22', '1.23', '1.24' ]
+        go-version: [ '1.23' ]
 
     steps:
       - name: 📦 Checkout repository
         uses: actions/checkout@v4
-
-      - name: 🧰 Setup Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
-          cache: true
-
-      - name: ⚙️ Install dependencies
-        run: go mod tidy
-
       - name: 🧪 Run tests via pipeyard
-        run: go run ./ci test --timeout 60s
+        run: go run ./ci test --timeout 120s
 
       - name: ⚙️ Build library via pipeyard
         run: go run ./ci build
@@ -38,3 +35,21 @@ jobs:
       - name: 🚀 Release via pipeyard
         if: startsWith(github.ref, 'refs/tags/')
         run: go run ./ci release ${GITHUB_REF#refs/tags/} --branch main --publish
+
+      - name: 🔑 Docker login
+        if: github.ref == 'refs/heads/main'
+        env:
+          DOCKERHUB_USER: ${{ secrets.DOCKERHUB_USER }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          echo "${DOCKERHUB_TOKEN}" | docker login -u "${DOCKERHUB_USER}" --password-stdin
+
+#      - name: ⚙️ Build Docker image via pipeyard
+#        env:
+#          BUILDKIT_HOST: tcp://127.0.0.1:1234
+#        run: |
+#          go run ./ci buildDockerImage \
+#            --image rridane/pipeyard:0.0.1 \
+#            --timeout 300s \
+#            --push true
+#
