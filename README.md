@@ -295,6 +295,7 @@ func (s *JavaBuildStage) Execute(ctx context.Context, cmd *cobra.Command, logger
 
     return nil
 }
+```
 
 ## 🧠 Injectors – The heart of pipeyard's Dependency Injection
 
