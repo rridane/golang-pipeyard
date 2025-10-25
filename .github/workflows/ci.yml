@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: rridane/pipeyard-ci:latest
+      image: rridane/pipeyard-ci:0.0.1
       options: --privileged
       env:
         DOCKER_BUILDKIT: "1"
