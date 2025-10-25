@@ -53,8 +53,6 @@ func (c *ContainerBuilder) InitContainer(specs ContainerSpec) *ContainerBuilder 
 		panic("neither Dockerfile nor Image specified")
 	}
 
-	return c
-
 }
 
 func (c *ContainerBuilder) initFromDockerfile() *ContainerBuilder {
@@ -137,7 +135,11 @@ func (c *ContainerBuilder) CopyToHost(src, dstDir string) *ContainerBuilder {
 		c.specs.Logger.Error("buildkit connect failed", zap.Error(err))
 		return c
 	}
-	defer cli.Close()
+	defer func() {
+		if err = cli.Close(); err != nil {
+			c.specs.Logger.Warn("failed to close buildkit client", zap.Error(err))
+		}
+	}()
 
 	statusCh := make(chan *client.SolveStatus)
 	go c.streamStatus(statusCh)
@@ -181,7 +183,12 @@ func (c *ContainerBuilder) Push(ctx context.Context, imageRef string, insecure b
 	if err != nil {
 		return fmt.Errorf("buildkit connect failed: %w", err)
 	}
-	defer cli.Close()
+
+	defer func() {
+		if err = cli.Close(); err != nil {
+			c.specs.Logger.Warn("failed to close buildkit client", zap.Error(err))
+		}
+	}()
 
 	def, err := c.specs.state.Marshal(ctx)
 	if err != nil {
@@ -274,17 +281,22 @@ func (c *ContainerBuilder) solveGraph(ctx context.Context, def *llb.Definition) 
 		c.specs.Logger.Error("buildkit connect failed", zap.Error(err))
 		return nil
 	}
-	defer func(cli *client.Client) {
-		err := cli.Close()
-		if err != nil {
-			c.specs.Logger.Error("close failed", zap.Error(err))
+
+	defer func() {
+		if err = cli.Close(); err != nil {
+			c.specs.Logger.Warn("failed to close buildkit client", zap.Error(err))
 		}
-	}(cli)
+	}()
 
 	statusCh := make(chan *client.SolveStatus)
 	go c.streamStatus(statusCh)
 
 	fs, err := fsutil.NewFS(".")
+
+	if err != nil {
+		c.specs.Logger.Error("Unable to create current Dir filesystem")
+	}
+
 	_, err = cli.Solve(ctx, def, client.SolveOpt{
 		LocalMounts: map[string]fsutil.FS{HostCurrentDirFs: fs},
 	}, statusCh)

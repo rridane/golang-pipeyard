@@ -9,6 +9,10 @@ func (g *GitlabUtils) CreateTag(t Tag) Tag {
 
 	client, err := gitlab.NewClient(g.Token, gitlab.WithBaseURL(GitlabUrl))
 
+	if err != nil {
+		fmt.Println("unable to create gitlab client ")
+	}
+
 	fmt.Println("Creating tag " + t.Name + " ...")
 
 	ro := &gitlab.CreateTagOptions{

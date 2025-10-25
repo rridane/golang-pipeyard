@@ -43,8 +43,8 @@ func main() {
 	pipe.
 		RegisterStage("test", &TestSTage{}).
 		RegisterStage("build", &BuildStage{}).
-		RegisterStage("release", &ReleaseStage{}).
-		pipe.Run()
+		RegisterStage("release", &ReleaseStage{})
+	pipe.Run()
 
 	tracerInjector.Shutdown(ctx)
 	telemetryLoggerInjector.Shutdown(ctx)

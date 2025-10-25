@@ -25,28 +25,25 @@ func (s *TestSTage) Configure(cmd *cobra.Command) {
 
 func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, meter metric.Meter, tracer trace.Tracer, cBuilder *container_builder.ContainerBuilder) error {
 
-	job := stage_layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
-
 	timeout, _ := cmd.Flags().GetDuration("timeout")
 
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	//err := shell.Run(ctx, "cd .. && go test -v cover ./...")
+	job := stage_layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
 
 	spec := container_builder.ContainerSpec{
-		Image:      "golang:1.24.8",
+		Image:      "golang:1.24.9",
 		Env:        map[string]string{"FOO": "bar"},
-		WorkDir:    "/src",
+		WorkDir:    "/",
 		EntryPoint: "sh",
 		Logger:     logger,
 	}
 
 	c := cBuilder.InitContainer(spec)
 
-	c.Exec("go test -v -cover ./...")
+	c.Exec("mkdir src").CopyFromHost("./", "./src").Exec("cd ./src && go test -v -cover ./...").Apply()
 
-	//job.End(err)
 	job.End(nil)
 
 	return nil

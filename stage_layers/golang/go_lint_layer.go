@@ -32,7 +32,7 @@ func (l *GoLintLayer) Run(ctx context.Context, logger *zap.Logger, cBuilder *con
 	})
 
 	logger.Info("🔹 Execute golangci-lint")
-	container.Exec("golangci-lint run ./...")
+	container.Exec("mkdir src").CopyFromHost("./", "./src").Exec("cd src && golangci-lint run ./...").Apply()
 
 	logger.Info("✅ GoLint layer terminé avec succès")
 	return nil
