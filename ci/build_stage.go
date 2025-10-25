@@ -3,8 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"github.com/rridane/golang-pipeyard/modules/container_builder"
 	shell_executor "github.com/rridane/golang-pipeyard/modules/shell_executor"
 	"github.com/rridane/golang-pipeyard/stage_layers"
+	"github.com/rridane/golang-pipeyard/stage_layers/golang"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -30,6 +32,7 @@ func (s *BuildStage) Execute(
 	shell *shell_executor.ShellExecutor,
 	meter metric.Meter,
 	tracer trace.Tracer,
+	cBuilder *container_builder.ContainerBuilder,
 ) error {
 	job := stage_layers.StartNewJobInstrumentation(ctx, "build", &tracer, meter, logger)
 	defer func() { job.End(nil) }()
@@ -54,6 +57,13 @@ func (s *BuildStage) Execute(
 			job.End(err)
 			return fmt.Errorf("échec de l’étape '%s': %w", step.name, err)
 		}
+	}
+
+	lintLayer := golang.GoLintLayer{LintImage: "golangci/golangci-lint:v2.5.0"}
+	err := lintLayer.Run(ctx, logger, cBuilder)
+
+	if err != nil {
+		return err
 	}
 
 	duration := time.Since(start)

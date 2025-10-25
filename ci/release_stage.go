@@ -47,7 +47,6 @@ func (s *ReleaseStage) Execute(
 	start := time.Now()
 	logger.Info("🏷️ Démarrage du process de release", zap.String("version", version))
 
-	// Étape 1 — Préparer la release
 	release := releaseFactory.
 		WithTag(version).
 		WithReleaseName(fmt.Sprintf("pipeyard %s", version)).
@@ -57,22 +56,16 @@ func (s *ReleaseStage) Execute(
 		WithBody("Automated release created via pipeyard CI").
 		PrepareRelease()
 
-	// Étape 2 — Création du tag Git
-	release.CreateTag()
+	release.
+		CreateTag().
+		CreateRelease().
+		WithChangelog()
 
-	// Étape 3 — Création de la release GitHub
-	release.CreateRelease()
-
-	// Étape 4 — Génération d’un changelog automatique
-	release.WithChangelog()
-
-	// Étape 5 — Upload d’assets éventuels
 	if len(assets) > 0 {
 		logger.Info("📦 Upload des assets", zap.Int("count", len(assets)))
 		release.UploadAssets(assets)
 	}
 
-	// Étape 6 — Publication
 	if shouldPublish {
 		logger.Info("🚀 Publication de la release")
 		release.Publish()

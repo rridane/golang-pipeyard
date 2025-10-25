@@ -247,6 +247,55 @@ Each `RegisterStage` automatically becomes a subcommand, fully typed and documen
 
 🧩 At this point, your pipeline is fully assembled — all your stages are defined, your CLI is automatically generated, and your CI is ready to run anywhere (locally, in GitHub Actions, GitLab CI, Jenkins, or even inside a Dagger pipeline).
 
+# 🧱 Container Builder — The Universal Execution Engine
+
+The `container_builder` module is what makes PipeYard **language-agnostic**.
+
+It provides a high-level Go abstraction over [BuildKit’s Low-Level Build (LLB) API](https://github.com/moby/buildkit), allowing you to **build, test, package, and push** any kind of project — Java, Python, Node.js, Flutter, Rust, Go, and more — all within isolated containers.
+
+## 🧩 Why it matters
+
+Most CI frameworks (GitHub Actions, Jenkins, GitLab, Tekton) rely on YAML-driven shell commands.  
+PipeYard replaces these with **typed, composable build graphs**, executed through BuildKit.
+
+This means:
+- Every stage runs inside a container.
+- Builds are reproducible and cacheable.
+- Multi-language pipelines become trivial.
+- No dependency pollution or drift.
+
+PipeYard runs as many containers as needed in one stage — each isolated to the specific task at hand.
+All builds automatically benefit from BuildKit caching and parallelization — enabling incremental builds, layer reuse, and blazing fast pipelines.
+
+## ⚙️ Example: Building a Java project inside PipeYard
+
+```go
+type JavaBuildStage struct{}
+
+func (s *JavaBuildStage) Configure(cmd *cobra.Command) {
+    cmd.Use = "java:build"
+    cmd.Short = "Build Java project using Maven"
+}
+
+func (s *JavaBuildStage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, meter metric.Meter, tracer trace.Tracer, cBuilder *container_builder.ContainerBuilder) error {
+    job := stage_layers.StartNewJobInstrumentation(ctx, "java-build", tracer, meter, logger)
+    defer job.End(nil)
+
+    cBuilder.InitContainer(container_builder.ContainerSpec{
+        Image:         "maven:3.9.6-eclipse-temurin-17",
+        WorkDir:       "/workspace",
+        ContextDir:    "./",
+        EntryPoint:    "bash",
+        Logger:        logger,
+    }).
+        CopyFromHost(".", "/workspace").
+        Exec("mvn clean package -DskipTests").
+        CopyToHost("target/*.jar", "./build").
+        Apply()
+
+    return nil
+}
+
 ## 🧠 Injectors – The heart of pipeyard's Dependency Injection
 
 Injectors are the **core mechanism** that power pipeyard’s dependency injection system.
@@ -284,6 +333,7 @@ As long as your pipeline includes a `TelemetryLoggerInjector` and a `TracerInjec
 | `ShellExecutorInjector` | `*ShellExecutor` | Context-aware shell runner (built on `mvdan/sh`) | ❌ | `Timeout` |
 | `GitHubReleaseInjector` | `*github_releases.ReleaseFactory` | Manage GitHub releases programmatically | ❌ | `Token`, `Owner`, `Repo`, `Enterprise`, `BaseURL` |
 | `K8sInjector` | `*kubernetes.Clientset` | Access to Kubernetes cluster using in-cluster or kubeconfig context | ❌ | `KubeConfigPath`, `Namespace` |
+| `ContainerBuilderInjector` | `*container_builder.ContainerBuilder` | Provides a ready-to-use BuildKit-based container execution engine for language-agnostic builds (Go, Java, Node, Python…) | ❌ | `DockerUsername`, `DockerPassword`, `CreateAndOverrideConfigJsonFile` |
 | `DaggerInjector` | `*dagger.Client` | Run containerized CI/CD pipelines inside Dagger Engine | ❌ | `Endpoint`, `AuthToken`, `Insecure` |
 
 💡 **Best practice:**  

@@ -32,15 +32,19 @@ func main() {
 			&tracerInjector,
 			&telemetryLoggerInjector,
 			&meterInjector,
+			&injectors.ContainerBuilderInjector{
+				DockerUsername:                  os.Getenv("DOCKER_USERNAME"),
+				DockerPassword:                  os.Getenv("DOCKER_PASSWORD"),
+				CreateAndOverrideConfigJsonFile: true,
+			},
 		},
 	})
 
 	pipe.
 		RegisterStage("test", &TestSTage{}).
 		RegisterStage("build", &BuildStage{}).
-		RegisterStage("release", &ReleaseStage{})
-
-	pipe.Run()
+		RegisterStage("release", &ReleaseStage{}).
+		pipe.Run()
 
 	tracerInjector.Shutdown(ctx)
 	telemetryLoggerInjector.Shutdown(ctx)

@@ -42,7 +42,9 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 
 	var cores []zapcore.Core
 
-	consoleEncoder := zapcore.NewJSONEncoder(zap.NewProductionEncoderConfig())
+	encCfg := zap.NewDevelopmentEncoderConfig()
+	encCfg.EncodeTime = zapcore.TimeEncoderOfLayout("15:04:05.000")
+	consoleEncoder := zapcore.NewConsoleEncoder(encCfg)
 	consoleCore := zapcore.NewCore(consoleEncoder, zapcore.AddSync(os.Stdout), level)
 	cores = append(cores, consoleCore)
 

@@ -12,7 +12,7 @@ func TestGetIssuesFromGitlab(t *testing.T) {
 
 	g := GitlabUtils{
 		ProjectId: "2136",
-		Token:     "6xuy7K7NTYSmStxkgHZM",
+		Token:     "",
 	}
 
 	timeStart, _ := time.Parse(time.RFC3339, "2023-02-22T06:00:00.000+00:00")
@@ -61,8 +61,8 @@ func TestGetTagsFromGitlab(t *testing.T) {
 	specs := []TagFilter{&orderby, &pagination}
 
 	g := GitlabUtils{
-		ProjectId: "2136",
-		Token:     "6xuy7K7NTYSmStxkgHZM",
+		ProjectId: "",
+		Token:     "",
 	}
 
 	tags := g.GetTagsFromGitlab(specs)

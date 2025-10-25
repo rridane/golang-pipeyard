@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	shell_executor "github.com/rridane/golang-pipeyard/modules/shell_executor"
+	container_builder "github.com/rridane/golang-pipeyard/modules/container_builder"
 	"github.com/rridane/golang-pipeyard/stage_layers"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
@@ -23,7 +23,7 @@ func (s *TestSTage) Configure(cmd *cobra.Command) {
 
 }
 
-func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, shell *shell_executor.ShellExecutor, meter metric.Meter, tracer trace.Tracer) error {
+func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap.Logger, meter metric.Meter, tracer trace.Tracer, cBuilder *container_builder.ContainerBuilder) error {
 
 	job := stage_layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
 
@@ -32,9 +32,22 @@ func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	err := shell.Run(ctx, "go test -v ./")
+	//err := shell.Run(ctx, "cd .. && go test -v cover ./...")
 
-	job.End(err)
+	spec := container_builder.ContainerSpec{
+		Image:      "golang:1.24.8",
+		Env:        map[string]string{"FOO": "bar"},
+		WorkDir:    "/src",
+		EntryPoint: "sh",
+		Logger:     logger,
+	}
 
-	return err
+	c := cBuilder.InitContainer(spec)
+
+	c.Exec("go test -v -cover ./...")
+
+	//job.End(err)
+	job.End(nil)
+
+	return nil
 }
