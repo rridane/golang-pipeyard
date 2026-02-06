@@ -1,5 +1,5 @@
 # Étape 1 : base Go
-FROM golang:1.23-bookworm AS builder
+FROM golang:1.23-bookworm
 
 # Installer BuildKit (buildctl et buildkitd)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -14,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && chmod +x /usr/local/bin/buildctl /usr/local/bin/buildkitd
 
 # Variables d’environnement minimales
-ENV PATH="/go/bin:${PATH}" \
+ENV PATH="/go/bin:/usr/local/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     BUILDKITD_FLAGS="--oci-worker-no-process-sandbox" \
     DOCKER_BUILDKIT=1
 

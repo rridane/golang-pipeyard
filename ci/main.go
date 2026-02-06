@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"github.com/joho/godotenv"
-	pipeline_provider "github.com/rridane/golang-pipeyard"
 	injectors "github.com/rridane/golang-pipeyard/injectors"
+	"github.com/rridane/golang-pipeyard/pkg/pipeyard"
 	"go.uber.org/zap/zapcore"
 	"log"
 	"os"
@@ -22,7 +22,7 @@ func main() {
 
 	tracerInjector, telemetryLoggerInjector, meterInjector := getInjectors()
 
-	pipe := pipeline_provider.New(pipeline_provider.PipelineConfig{
+	pipe := pipeyard.NewPipeline(pipeline_provider.PipelineConfig{
 		Name:             "ci_pipeline",
 		ShortDescription: "CI CLI – All stages",
 		LongDescription:  "Pipeline cli for pipeyard library",

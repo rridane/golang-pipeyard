@@ -3,11 +3,11 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/rridane/golang-pipeyard/modules/container_builder"
-	shell_executor "github.com/rridane/golang-pipeyard/modules/shell_executor"
-	"github.com/rridane/golang-pipeyard/stage_layers"
-	"github.com/rridane/golang-pipeyard/stage_layers/golang"
-	"github.com/spf13/cobra"
+	"github.com/rridane/golang-pipeyard/pkg/pipeyard/domain"
+	"github.com/rridane/golang-pipeyard/pkg/pipeyardx/layers"
+	"github.com/rridane/golang-pipeyard/pkg/pipeyardx/layers/golang"
+	cBuilder "github.com/rridane/golang-pipeyard/pkg/pipeyardx/modules/container_builder"
+	shell "github.com/rridane/golang-pipeyard/pkg/pipeyardx/modules/shell_executor"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
@@ -17,24 +17,34 @@ import (
 type BuildStage struct{}
 
 // Configure définit les paramètres de la commande
-func (s *BuildStage) Configure(cmd *cobra.Command) {
-	cmd.Use = "build"
-	cmd.Short = "Valide la buildabilité et la propreté du module Go"
-	cmd.Long = `Vérifie que le module Go compile, que les dépendances sont à jour,
-et que le go.mod est propre. Aucun artefact n’est produit.`
+func (s *BuildStage) Configure() domain.StageSpec {
+	return domain.StageSpec{
+		Command: "build",
+		Short:   "Valide la buildabilité et la propreté du module Go",
+		Long: `Vérifie que le module Go compile, que les dépendances sont à jour,
+et que le go.mod est propre. Aucun artefact n’est produit.`,
+		ArgSpec: []domain.FlagSpec{
+			{
+				Name:        "",
+				Type:        "",
+				Default:     nil,
+				Description: "",
+				Required:    false,
+			}},
+	}
 }
 
 // Execute lance les validations du build
 func (s *BuildStage) Execute(
 	ctx context.Context,
-	cmd *cobra.Command,
+	args domain.ParsedArgs,
 	logger *zap.Logger,
-	shell *shell_executor.ShellExecutor,
+	shell *shell.ShellExecutor,
 	meter metric.Meter,
 	tracer trace.Tracer,
-	cBuilder *container_builder.ContainerBuilder,
+	cBuilder cBuilder.ContainerBuilder,
 ) error {
-	job := stage_layers.StartNewJobInstrumentation(ctx, "build", &tracer, meter, logger)
+	job := layers.StartNewJobInstrumentation(ctx, "build", &tracer, meter, logger)
 	defer func() { job.End(nil) }()
 
 	start := time.Now()

@@ -2,8 +2,8 @@ package main
 
 import (
 	"context"
-	container_builder "github.com/rridane/golang-pipeyard/modules/container_builder"
-	"github.com/rridane/golang-pipeyard/stage_layers"
+	"github.com/rridane/golang-pipeyard/layers"
+	container_builder "github.com/rridane/golang-pipeyard/pkg/container_builder"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -30,7 +30,7 @@ func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	job := stage_layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
+	job := layers.StartNewJobInstrumentation(ctx, "test", &tracer, meter, logger)
 
 	spec := container_builder.ContainerSpec{
 		Image:      "golang:1.24.9",
@@ -42,7 +42,7 @@ func (s *TestSTage) Execute(ctx context.Context, cmd *cobra.Command, logger *zap
 
 	c := cBuilder.InitContainer(spec)
 
-	c.Exec("mkdir src").CopyFromHost("./", "./src").Exec("cd ./src && go test -v -cover ./...").Apply()
+	c.ExecShell("mkdir src").CopyFromHost("./", "./src").ExecShell("cd ./src && go test -v -cover ./...").Apply()
 
 	job.End(nil)
 

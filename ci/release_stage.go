@@ -3,8 +3,8 @@ package main
 import (
 	"context"
 	"fmt"
-	github_releases "github.com/rridane/golang-pipeyard/modules/github_releases_sdk"
-	"github.com/rridane/golang-pipeyard/stage_layers"
+	"github.com/rridane/golang-pipeyard/layers"
+	github_releases "github.com/rridane/golang-pipeyard/pkg/github_releases_sdk"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -41,7 +41,7 @@ func (s *ReleaseStage) Execute(
 	shouldPublish, _ := cmd.Flags().GetBool("publish")
 	assets, _ := cmd.Flags().GetStringSlice("assets")
 
-	job := stage_layers.StartNewJobInstrumentation(ctx, "release", tracer, meter, logger)
+	job := layers.StartNewJobInstrumentation(ctx, "release", tracer, meter, logger)
 	defer func() { job.End(nil) }()
 
 	start := time.Now()

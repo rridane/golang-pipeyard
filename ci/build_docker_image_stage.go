@@ -4,8 +4,8 @@ import (
 	"context"
 	"time"
 
-	container_builder "github.com/rridane/golang-pipeyard/modules/container_builder"
-	"github.com/rridane/golang-pipeyard/stage_layers"
+	"github.com/rridane/golang-pipeyard/layers"
+	container_builder "github.com/rridane/golang-pipeyard/pkg/container_builder"
 	"github.com/spf13/cobra"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/trace"
@@ -19,7 +19,7 @@ func (s *BuildDockerStage) Configure(cmd *cobra.Command) {
 	cmd.Short = "Construit et push une image Docker via BuildKit"
 
 	cmd.Flags().Duration("timeout", 300*time.Second, "Durée maximale d’exécution du build Docker")
-	cmd.Flags().String("image", "rridane/pipeyard:0.0.1", "Nom complet de l’image à builder et push")
+	cmd.Flags().String("image", "rridane/pipeyard:0.0.5", "Nom complet de l’image à builder et push")
 	cmd.Flags().String("context", "./", "Répertoire de contexte du Dockerfile")
 	cmd.Flags().String("dockerfile", "./ci/Dockerfile", "Chemin du Dockerfile à utiliser")
 	cmd.Flags().Bool("push", true, "Activer le push de l’image vers le registry")
@@ -34,7 +34,7 @@ func (s *BuildDockerStage) Execute(
 	cBuilder *container_builder.ContainerBuilder,
 ) error {
 
-	job := stage_layers.StartNewJobInstrumentation(ctx, "docker build", &tracer, meter, logger)
+	job := layers.StartNewJobInstrumentation(ctx, "docker build", &tracer, meter, logger)
 
 	// Récupération des flags CLI
 	timeout, _ := cmd.Flags().GetDuration("timeout")
