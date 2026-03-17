@@ -1,4 +1,4 @@
-package teams
+package teams_sdk
 
 import (
 	"fmt"
@@ -13,15 +13,15 @@ type TeamsUtils struct {
 }
 
 type Notification struct {
-	Summary string
-	Title string
+	Summary             string
+	Title               string
 	Text                string
 	NotificationButtons []NotificationButton
 }
 
 type NotificationButton struct {
 	Title string
-	Url string
+	Url   string
 }
 
 func (t *TeamsUtils) SendNotification(notification Notification) {
@@ -73,4 +73,3 @@ func (t *TeamsUtils) SendNotification(notification Notification) {
 	}
 
 }
-

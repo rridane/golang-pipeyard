@@ -1,4 +1,4 @@
-package pipeyardx
+package gitlab_releases_sdk
 
 import (
 	gitlab_utils "github.com/rridane/golang-pipeyard/pkg/gitlab"

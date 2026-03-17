@@ -1,4 +1,4 @@
-package pipeyardx
+package mail_sender
 
 import (
 	"bytes"
@@ -15,7 +15,7 @@ import (
 	"time"
 )
 
-type mailSender struct {
+type MailSender struct {
 	logger            *zap.Logger
 	smtpConf          smtpConf
 	email             email

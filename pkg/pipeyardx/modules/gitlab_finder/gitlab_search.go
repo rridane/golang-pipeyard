@@ -1,4 +1,4 @@
-package gitlab_utils
+package gitlab_finder
 
 /*
 	Get Infos from gitlab => Issues, tags

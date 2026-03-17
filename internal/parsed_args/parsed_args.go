@@ -1,6 +1,11 @@
-package internal
+package parsed_args
 
-import "fmt"
+import (
+	"fmt"
+	"github.com/rridane/golang-pipeyard/x"
+)
+
+var _ x.ParsedArgsInterface = (*ParsedArgs)(nil)
 
 type ParsedArgs struct {
 	boolParams   map[string]bool
@@ -10,17 +15,17 @@ type ParsedArgs struct {
 
 /* ----------------- String ----------------- */
 
-func (a ParsedArgs) StringOk(name string) (string, bool) {
+func (a *ParsedArgs) StringOk(name string) (string, bool) {
 	v, ok := a.stringParams[name]
 	return v, ok
 }
 
-func (a ParsedArgs) String(name string) string {
+func (a *ParsedArgs) String(name string) string {
 	v, _ := a.StringOk(name)
 	return v
 }
 
-func (a ParsedArgs) RequireString(name string) (string, error) {
+func (a *ParsedArgs) RequireString(name string) (string, error) {
 	if v, ok := a.StringOk(name); ok {
 		return v, nil
 	}
@@ -29,17 +34,17 @@ func (a ParsedArgs) RequireString(name string) (string, error) {
 
 /* ----------------- Int ----------------- */
 
-func (a ParsedArgs) IntOk(name string) (int, bool) {
+func (a *ParsedArgs) IntOk(name string) (int, bool) {
 	v, ok := a.intParams[name]
 	return v, ok
 }
 
-func (a ParsedArgs) Int(name string) int {
+func (a *ParsedArgs) Int(name string) int {
 	v, _ := a.IntOk(name)
 	return v
 }
 
-func (a ParsedArgs) RequireInt(name string) (int, error) {
+func (a *ParsedArgs) RequireInt(name string) (int, error) {
 	if v, ok := a.IntOk(name); ok {
 		return v, nil
 	}
@@ -48,17 +53,17 @@ func (a ParsedArgs) RequireInt(name string) (int, error) {
 
 /* ----------------- Bool ----------------- */
 
-func (a ParsedArgs) BoolOk(name string) (bool, bool) {
+func (a *ParsedArgs) BoolOk(name string) (bool, bool) {
 	v, ok := a.boolParams[name]
 	return v, ok
 }
 
-func (a ParsedArgs) Bool(name string) bool {
+func (a *ParsedArgs) Bool(name string) bool {
 	v, _ := a.BoolOk(name)
 	return v
 }
 
-func (a ParsedArgs) RequireBool(name string) (bool, error) {
+func (a *ParsedArgs) RequireBool(name string) (bool, error) {
 	if v, ok := a.BoolOk(name); ok {
 		return v, nil
 	}
@@ -67,7 +72,7 @@ func (a ParsedArgs) RequireBool(name string) (bool, error) {
 
 /* ----------------- Keys ----------------- */
 
-func (a ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys []string) {
+func (a *ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys []string) {
 	for k := range a.stringParams {
 		stringsKeys = append(stringsKeys, k)
 	}

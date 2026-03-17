@@ -1,8 +1,7 @@
-package contracts
+package runtime
 
 import (
 	"context"
-	"github.com/rridane/golang-pipeyard/internal"
 )
 
 type RuntimeInterface interface {
@@ -14,6 +13,6 @@ type Command struct {
 	Command string
 	Short   string
 	Long    string
-	Args    []FlagSpec
-	Exec    func(ctx context.Context, args internal.ParsedArgs) error
+	Args    []Flag
+	Exec    func(ctx context.Context, args ParsedArgsInterface) error
 }

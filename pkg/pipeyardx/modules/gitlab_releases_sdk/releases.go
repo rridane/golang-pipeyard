@@ -4,7 +4,7 @@ A release struct is a conceptional representation of a release in the sense of g
 So it's a tag, a gitlab release (release version) and links attached to it
 */
 
-package pipeyardx
+package gitlab_releases_sdk
 
 import (
 	"fmt"

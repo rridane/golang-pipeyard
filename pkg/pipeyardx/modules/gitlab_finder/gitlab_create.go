@@ -1,4 +1,4 @@
-package gitlab_utils
+package gitlab_finder
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ func (g *GitlabUtils) CreateTag(t Tag) Tag {
 	if err != nil {
 		fmt.Println("unable to create gitlab client ")
 	}
-	gg
 	fmt.Println("Creating tag " + t.Name + " ...")
 
 	ro := &gitlab.CreateTagOptions{

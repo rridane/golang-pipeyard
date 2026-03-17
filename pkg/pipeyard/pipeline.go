@@ -3,16 +3,16 @@ package pipeyard
 import (
 	"context"
 	"fmt"
-	"github.com/rridane/golang-pipeyard/contracts"
 	"github.com/rridane/golang-pipeyard/internal"
-	"github.com/rridane/golang-pipeyard/internal/adapters"
 	"github.com/rridane/golang-pipeyard/internal/dependency_injection"
+	"github.com/rridane/golang-pipeyard/internal/runtime"
+	"github.com/rridane/golang-pipeyard/x"
 	"os"
 	"reflect"
 )
 
 type Pipeline struct {
-	runtime   contracts.RuntimeInterface
+	runtime   x.RuntimeInterface
 	injectors []any
 }
 
@@ -30,7 +30,7 @@ func (a *Pipeline) RegisterStage(stage Stage) *Pipeline {
 
 	stageSpec := stage.Configure()
 
-	commandSpec := contracts.Command{
+	commandSpec := x.Command{
 		Command: stageSpec.Command,
 		Short:   stageSpec.Short,
 		Long:    stageSpec.Long,
@@ -108,17 +108,17 @@ func (a *Pipeline) Run(ctx context.Context) {
 // NewPipeline crée un nouveau pipeline
 func NewPipeline(config PipelineConfig) *Pipeline {
 
-	runtimeFactory := adapters.RuntimeFactory{
+	runtimeFactory := runtime.RuntimeFactory{
 		Name:    config.Name,
 		Short:   config.ShortDescription,
 		Long:    config.LongDescription,
 		Version: config.Version,
 	}
 
-	runtime := runtimeFactory.NewRuntime()
+	r := runtimeFactory.NewRuntime()
 
 	app := &Pipeline{
-		runtime:   runtime,
+		runtime:   r,
 		injectors: config.Injectors,
 	}
 

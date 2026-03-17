@@ -1,17 +1,17 @@
-package adapters
+package runtime
 
 import (
 	"context"
 	"fmt"
+	"github.com/rridane/golang-pipeyard/x"
 	"os"
 	"sort"
 
-	"github.com/rridane/golang-pipeyard/internal"
 	"github.com/rridane/golang-pipeyard/pkg/pipeyard"
 	"github.com/spf13/cobra"
 )
 
-var _ pipeyard.RuntimeInterface = (*CobraRuntime)(nil)
+var _ x.RuntimeInterface = (*CobraRuntime)(nil)
 
 type CobraRuntime struct {
 	root *cobra.Command
@@ -43,7 +43,7 @@ func (r *CobraRuntime) AddCommand(cmd pipeyard.Command) {
 		Long:  cmd.Long,
 	}
 
-	// 1) Déclare les flags à partir de FlagSpec
+	// 1) Déclare les flags à partir de Flag
 	declareFlags(c, cmd.Args)
 
 	// 2) RunE: parse flags -> internal.ParsedArgs -> call cmd.Exec

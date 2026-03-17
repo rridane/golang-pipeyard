@@ -6,7 +6,10 @@ import (
 	"path/filepath"
 )
 
-func CopyFile(src, dst string) error {
+type FileHelper struct {
+}
+
+func (f *FileHelper) CopyFile(src, dst string) error {
 	in, err := os.Open(src)
 	if err != nil {
 		return err
@@ -26,7 +29,7 @@ func CopyFile(src, dst string) error {
 	return out.Sync()
 }
 
-func MergeFiles(pattern, output string) error {
+func (f *FileHelper) MergeFiles(pattern, output string) error {
 	out, err := os.Create(output)
 	if err != nil {
 		return err

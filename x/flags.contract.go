@@ -1,6 +1,6 @@
-package contracts
+package x
 
-type FlagSpec struct {
+type Flag struct {
 	Name        string
 	Type        FlagType
 	Default     any
