@@ -1,11 +1,8 @@
-package parsed_args
+package ru
 
 import (
 	"fmt"
-	"github.com/rridane/golang-pipeyard/x"
 )
-
-var _ x.ParsedArgsInterface = (*ParsedArgs)(nil)
 
 type ParsedArgs struct {
 	boolParams   map[string]bool

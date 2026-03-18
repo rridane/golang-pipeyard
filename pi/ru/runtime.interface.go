@@ -1,4 +1,4 @@
-package runtime
+package ru
 
 import (
 	"context"
@@ -14,5 +14,5 @@ type Command struct {
 	Short   string
 	Long    string
 	Args    []Flag
-	Exec    func(ctx context.Context, args ParsedArgsInterface) error
+	Exec    func(ctx context.Context, args ParsedArgs) error
 }

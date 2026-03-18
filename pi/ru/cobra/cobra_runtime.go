@@ -1,17 +1,13 @@
-package runtime
+package cobra
 
 import (
 	"context"
 	"fmt"
-	"github.com/rridane/golang-pipeyard/x"
+	"github.com/rridane/golang-pipeyard/pi/ru"
+	"github.com/spf13/cobra"
 	"os"
 	"sort"
-
-	"github.com/rridane/golang-pipeyard/pkg/pipeyard"
-	"github.com/spf13/cobra"
 )
-
-var _ x.RuntimeInterface = (*CobraRuntime)(nil)
 
 type CobraRuntime struct {
 	root *cobra.Command
@@ -36,7 +32,7 @@ func NewCobraRuntime(cfg CobraRuntimeConfig) *CobraRuntime {
 	return &CobraRuntime{root: root}
 }
 
-func (r *CobraRuntime) AddCommand(cmd pipeyard.Command) {
+func (r *CobraRuntime) AddCommand(cmd ru.Command) {
 	c := &cobra.Command{
 		Use:   cmd.Command,
 		Short: cmd.Short,
@@ -46,7 +42,7 @@ func (r *CobraRuntime) AddCommand(cmd pipeyard.Command) {
 	// 1) Déclare les flags à partir de Flag
 	declareFlags(c, cmd.Args)
 
-	// 2) RunE: parse flags -> internal.ParsedArgs -> call cmd.Exec
+	// 2) RunE: parse flags -> ru.ParsedArgs -> call cmd.Exec
 	c.RunE = func(cobraCmd *cobra.Command, _ []string) error {
 		parsed, err := parseFlagsToParsedArgs(cobraCmd, cmd.Args)
 		if err != nil {
@@ -69,16 +65,16 @@ func (r *CobraRuntime) Process(ctx context.Context) error {
 
 /* ----------------------- Flags: déclaration ----------------------- */
 
-func declareFlags(c *cobra.Command, specs []pipeyard.FlagSpec) {
+func declareFlags(c *cobra.Command, specs []ru.Flag) {
 	for _, s := range specs {
 		switch s.Type {
-		case pipeyard.FlagType("string"):
+		case "string":
 			def, _ := s.Default.(string)
 			c.Flags().String(s.Name, def, s.Description)
-		case pipeyard.FlagType("bool"):
+		case "bool":
 			def, _ := s.Default.(bool)
 			c.Flags().Bool(s.Name, def, s.Description)
-		case pipeyard.FlagType("int"):
+		case "int":
 			def, _ := s.Default.(int)
 			c.Flags().Int(s.Name, def, s.Description)
 		default:
@@ -94,38 +90,38 @@ func declareFlags(c *cobra.Command, specs []pipeyard.FlagSpec) {
 
 /* ----------------------- Flags: parsing -> ParsedArgs ----------------------- */
 
-func parseFlagsToParsedArgs(c *cobra.Command, specs []pipeyard.FlagSpec) (internal.ParsedArgs, error) {
-	// NOTE: il te faut un constructeur côté internal.
-	// Exemple: internal.NewParsedArgs() qui initialise les maps.
-	args := internal.ParsedArgs{}
+func parseFlagsToParsedArgs(c *cobra.Command, specs []ru.Flag) (ru.ParsedArgs, error) {
+	// NOTE: il te faut un constructeur côté ru.
+	// Exemple: ru.NewParsedArgs() qui initialise les maps.
+	args := ru.ParsedArgs{}
 
 	for _, s := range specs {
 		switch s.Type {
-		case pipeyard.FlagType("string"):
+		case "string":
 			v, err := c.Flags().GetString(s.Name)
 			if err != nil {
-				return internal.ParsedArgs{}, err
+				return ru.ParsedArgs{}, err
 			}
 			// tu peux choisir de ne set que si Changed
 			// if c.Flags().Changed(s.Name) { ... }
 			args.SetString(s.Name, v)
 
-		case pipeyard.FlagType("bool"):
+		case "bool":
 			v, err := c.Flags().GetBool(s.Name)
 			if err != nil {
-				return internal.ParsedArgs{}, err
+				return ru.ParsedArgs{}, err
 			}
 			args.SetBool(s.Name, v)
 
-		case pipeyard.FlagType("int"):
+		case "int":
 			v, err := c.Flags().GetInt(s.Name)
 			if err != nil {
-				return internal.ParsedArgs{}, err
+				return ru.ParsedArgs{}, err
 			}
 			args.SetInt(s.Name, v)
 
 		default:
-			return internal.ParsedArgs{}, fmt.Errorf("unknown flag type for %s: %s", s.Name, s.Type)
+			return ru.ParsedArgs{}, fmt.Errorf("unknown flag type for %s: %s", s.Name, s.Type)
 		}
 	}
 

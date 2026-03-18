@@ -15,21 +15,3 @@ type StageSpec struct {
 	Long    string
 	Args    []FlagSpec
 }
-
-func getExecuteMethodSignature(stage Stage) (reflect.Method, bool) {
-	stageVal := reflect.TypeOf(stage)
-	m, ok := stageVal.MethodByName("Execute")
-	return m, ok
-}
-
-func getConfigureMethodSignature(stage Stage) (reflect.Method, bool) {
-	stageVal := reflect.TypeOf(stage)
-	m, ok := stageVal.MethodByName("Configure")
-	return m, ok
-}
-
-func getExecuteMethod(stage Stage) reflect.Value {
-	v := reflect.ValueOf(stage)
-	meth := v.MethodByName("Execute")
-	return meth
-}

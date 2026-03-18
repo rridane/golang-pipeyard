@@ -1,4 +1,4 @@
-package pi
+package ru
 
 type Flag struct {
 	Name        string
