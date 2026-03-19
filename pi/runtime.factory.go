@@ -1,7 +1,8 @@
 package pi
 
 import (
-	"github.com/rridane/golang-pipeyard/pi/internal/runtime/cobra"
+	"github.com/rridane/golang-pipeyard/ru"
+	"github.com/rridane/golang-pipeyard/ru/cobra"
 )
 
 type RuntimeFactory struct {
@@ -11,6 +12,6 @@ type RuntimeFactory struct {
 	Version string
 }
 
-func (r *RuntimeFactory) NewRuntime() RuntimeInterface {
-	return cobra.CobraRuntime{}
+func (r *RuntimeFactory) NewRuntime() ru.RuntimeInterface {
+	return &cobra.CobraRuntime{}
 }

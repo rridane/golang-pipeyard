@@ -1,4 +1,4 @@
-package mod
+package shell_executor
 
 import (
 	"context"

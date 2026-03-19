@@ -1,6 +1,6 @@
 package pi
 
-import "github.com/rridane/golang-pipeyard/pi/ru"
+import "github.com/rridane/golang-pipeyard/ru"
 
 type Stage interface {
 	Configure() StageSpec

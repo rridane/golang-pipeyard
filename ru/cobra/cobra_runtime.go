@@ -3,7 +3,7 @@ package cobra
 import (
 	"context"
 	"fmt"
-	"github.com/rridane/golang-pipeyard/pi/ru"
+	"github.com/rridane/golang-pipeyard/ru"
 	"github.com/spf13/cobra"
 	"os"
 	"sort"

@@ -3,7 +3,7 @@ package pi
 import (
 	"context"
 	"fmt"
-	"github.com/rridane/golang-pipeyard/pi/ru"
+	"github.com/rridane/golang-pipeyard/ru"
 	"os"
 )
 
