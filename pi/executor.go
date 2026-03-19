@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/rridane/golang-pipeyard/pi/internal/dependency_injection"
-	"github.com/rridane/golang-pipeyard/pi/ru"
+	"github.com/rridane/golang-pipeyard/ru"
 	"reflect"
 )
 

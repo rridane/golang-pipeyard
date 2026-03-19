@@ -1,8 +1,6 @@
 package pi
 
-import (
-	"reflect"
-)
+import "github.com/rridane/golang-pipeyard/pi/ru"
 
 type Stage interface {
 	Configure() StageSpec
@@ -10,8 +8,37 @@ type Stage interface {
 }
 
 type StageSpec struct {
-	Command string
-	Short   string
-	Long    string
-	Args    []FlagSpec
+	command string
+	short   string
+	long    string
+	args    []ru.Flag
 }
+
+func NewStageSpec(name string) StageSpec {
+	return StageSpec{
+		command: name,
+		short:   "",
+		long:    "",
+		args:    nil,
+	}
+}
+
+func (s StageSpec) AddFlag(name string, flagType ru.FlagType, description string, defaultValue string, required bool) {
+
+	s.args = append(s.args, ru.Flag{
+		Name:        name,
+		Type:        flagType,
+		Default:     defaultValue,
+		Description: description,
+		Required:    required,
+	})
+
+}
+
+func (s StageSpec) SetDescription(long string) {
+	s.long = long
+}
+
+//func (s StageSpec) SetShort(short string) {
+//	s.short = short
+//}

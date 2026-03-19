@@ -50,7 +50,7 @@ func TestNewPipelineWorks(t *testing.T) {
 	config := PipelineConfig{
 		Name:             "test",
 		ShortDescription: "Test pipeline",
-		LongDescription:  "Long test pipeline description",
+		LongDescription:  "long test pipeline description",
 		Version:          "1.0.0",
 		Injectors:        []any{},
 	}

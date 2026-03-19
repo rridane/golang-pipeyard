@@ -28,11 +28,11 @@ func (p *Pipeline) RegisterStage(stage Stage) *Pipeline {
 	stageSpec := stage.Configure()
 
 	commandSpec := ru.Command{
-		Command: stageSpec.Command,
-		Short:   stageSpec.Short,
-		Long:    stageSpec.Long,
-		Args:    stageSpec.Args,
-		Exec:    p.executor.generateExec(stage, stageSpec.Command),
+		Command: stageSpec.command,
+		Short:   stageSpec.short,
+		Long:    stageSpec.long,
+		Args:    stageSpec.args,
+		Exec:    p.executor.generateExec(stage, stageSpec.command),
 	}
 
 	p.runtime.AddCommand(commandSpec)
