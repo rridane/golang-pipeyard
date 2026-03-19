@@ -2,8 +2,7 @@ package inj
 
 import (
 	"fmt"
-
-	github_releases "github.com/rridane/golang-pipeyard/pkg/github_releases_sdk"
+	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
 // GitHubReleaseInjector fournit une ReleaseFactory GitHub configurée explicitement.
@@ -16,7 +15,7 @@ type GitHubReleaseInjector struct {
 }
 
 // Inject construit et renvoie une ReleaseFactory GitHub configurée.
-func (g *GitHubReleaseInjector) Inject(stageName string) *github_releases.ReleaseFactory {
+func (g *GitHubReleaseInjector) Inject(stageName string) *mod.GithubReleaseSDK {
 	fmt.Printf("🔧 Injection de GitHubReleaseFactory pour le stage %s\n", stageName)
 
 	if g.Token == "" || g.Owner == "" || g.Repo == "" {
@@ -24,7 +23,7 @@ func (g *GitHubReleaseInjector) Inject(stageName string) *github_releases.Releas
 		return nil
 	}
 
-	config := github_releases.Config{
+	config := mod.GithubReleaseConfig{
 		Token:      g.Token,
 		Owner:      g.Owner,
 		Repo:       g.Repo,
@@ -35,5 +34,5 @@ func (g *GitHubReleaseInjector) Inject(stageName string) *github_releases.Releas
 	fmt.Printf("📋 Configuration GitHub: owner=%s, repo=%s, enterprise=%t\n",
 		g.Owner, g.Repo, g.Enterprise)
 
-	return github_releases.NewReleaseFactory(config)
+	return mod.NewGithubReleaseSDK(config)
 }

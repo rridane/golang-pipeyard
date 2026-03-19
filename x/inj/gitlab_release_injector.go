@@ -2,7 +2,7 @@ package inj
 
 import (
 	"fmt"
-	gitlab_releases_sdk "github.com/rridane/golang-pipeyard/pkg/gitlab_releases_sdk"
+	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
 // GitlabReleaseInjector fournit une ReleaseFactory Gitlab configurée explicitement.
@@ -15,7 +15,7 @@ type GitlabReleaseInjector struct {
 }
 
 // Inject construit et renvoie une ReleaseFactory Gitlab configurée.
-func (g *GitlabReleaseInjector) Inject(stageName string) *gitlab_releases_sdk.ReleaseFactory {
+func (g *GitlabReleaseInjector) Inject(stageName string) *mod.GitlabRelease {
 	fmt.Printf("🔧 Injection de GitlabReleaseFactory pour le stage %s\n", stageName)
 
 	if g.Token == "" {
@@ -23,7 +23,7 @@ func (g *GitlabReleaseInjector) Inject(stageName string) *gitlab_releases_sdk.Re
 		return nil
 	}
 
-	config := gitlab_releases_sdk.Config{
+	config := mod.GitlabReleaseConfig{
 		Token:        g.Token,
 		ProjectId:    g.ProjectId,
 		TeamsWebHook: g.TeamsWebHook,
@@ -31,7 +31,7 @@ func (g *GitlabReleaseInjector) Inject(stageName string) *gitlab_releases_sdk.Re
 		ProjectName:  g.ProjectName,
 	}
 
-	release_factory := gitlab_releases_sdk.ReleaseFactory{Config: config}
+	release := mod.GitlabRelease{Config: config}
 
-	return &release_factory
+	return &release
 }

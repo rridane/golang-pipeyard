@@ -1,8 +1,7 @@
-package github_releases_sdk
+package gitlab_releases_sdk
 
 import (
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder"
-	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_releases_sdk"
 	"log"
 	"time"
 )
@@ -14,14 +13,14 @@ type GitlabReleaseSDK struct {
 	Description     *string
 	Message         *string
 	BranchName      *string
-	Config          gitlab_releases_sdk.Config
+	Config          Config
 	LastReleaseDate time.Time
 	Issues          []gitlab_finder.Link
 	exist           bool
 	existChecked    bool
 }
 
-func (r *GitlabReleaseSDK) PrepareRelease() gitlab_releases_sdk.IRelease {
+func (r *GitlabReleaseSDK) PrepareRelease() IRelease {
 
 	switch {
 	case r.ReleaseVersion == nil:
@@ -42,7 +41,7 @@ func (r *GitlabReleaseSDK) PrepareRelease() gitlab_releases_sdk.IRelease {
 		log.Println("TeamsWebHook is empty, please do not use CommunicateThroughTeams method ...")
 	}
 
-	release := gitlab_releases_sdk.Release{
+	release := Release{
 		ReleaseVersion:  r.ReleaseVersion,
 		Tag:             r.Tag,
 		AdditionalLinks: r.AdditionalLinks,

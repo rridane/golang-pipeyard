@@ -1,7 +1,7 @@
 package inj
 
 import (
-	shell_executor "github.com/rridane/golang-pipeyard/pkg/shell_executor"
+	"github.com/rridane/golang-pipeyard/x/mod"
 	"time"
 )
 
@@ -9,8 +9,8 @@ type ShellExecutorInjector struct {
 	timeout time.Duration
 }
 
-func (i *ShellExecutorInjector) Inject(stageName string) *shell_executor.ShellExecutor {
-	return &shell_executor.ShellExecutor{
+func (i *ShellExecutorInjector) Inject(stageName string) *mod.ShellExecutor {
+	return &mod.ShellExecutor{
 		Timeout: i.timeout,
 	}
 }

@@ -8,9 +8,9 @@ package gitlab_releases_sdk
 
 import (
 	"fmt"
-	"github.com/rridane/golang-pipeyard/x/mod"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder/issue_filters"
+	"github.com/rridane/golang-pipeyard/x/mod/internal/teams_sdk"
 	"sort"
 	"strconv"
 	"time"
@@ -207,14 +207,14 @@ func (r *Release) CommunicateThroughTeams() *Release {
 		return r
 	}
 
-	t := mod.TeamsSDK{WebHook: r.Config.TeamsWebHook}
+	t := teams_sdk.TeamsSDK{WebHook: r.Config.TeamsWebHook}
 
-	b1 := mod.TeamsNotificationButton{
+	b1 := teams_sdk.TeamsNotificationButton{
 		Title: "Release Page",
 		Url:   r.Config.ReleasePage,
 	}
 
-	b2 := mod.TeamsNotificationButton{
+	b2 := teams_sdk.TeamsNotificationButton{
 		Title: "Environments",
 		Url:   "",
 	}
@@ -225,11 +225,11 @@ func (r *Release) CommunicateThroughTeams() *Release {
 		Text += "<br><a href='" + link.Url + "'>" + link.Title + "</a>"
 	}
 
-	notification := mod.TeamsNotification{
+	notification := teams_sdk.TeamsNotification{
 		Summary:             "Release " + *r.ReleaseVersion,
 		Title:               "Nouvelle Release -- " + r.Config.ProjectName + " : " + *r.ReleaseVersion,
 		Text:                Text,
-		NotificationButtons: []mod.TeamsNotificationButton{b1, b2},
+		NotificationButtons: []teams_sdk.TeamsNotificationButton{b1, b2},
 	}
 
 	t.SendNotification(notification)
