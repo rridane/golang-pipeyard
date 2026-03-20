@@ -13,5 +13,10 @@ type RuntimeFactory struct {
 }
 
 func (r *RuntimeFactory) NewRuntime() ru.RuntimeInterface {
-	return &cobra.CobraRuntime{}
+	return cobra.NewCobraRuntime(cobra.CobraRuntimeConfig{
+		Name:    r.Name,
+		Short:   r.Short,
+		Long:    r.Long,
+		Version: r.Version,
+	})
 }

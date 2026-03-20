@@ -17,10 +17,14 @@ type BuildAndPushLayer struct {
 }
 
 type BuildAndPushLayerContext struct {
-	ContextDir    string
-	WorkDir       string
-	SrcDockerfile string
-	ImageName     string
+	ContextDir       string
+	WorkDir          string
+	SrcDockerfile    string
+	ImageName        string
+	Push             bool
+	ExportToLocalTar bool
+	LocalTarRef      string
+	LocalTarPath     string
 }
 
 func (b *BuildAndPushLayer) Name() string {
@@ -78,15 +82,42 @@ func (b *BuildAndPushLayer) Run(ctx context.Context, pipeYardCtx pi.Ctx, c Build
 		zap.String("image", c.ImageName),
 	)
 
-	err := b.CBuilder.InitContainer(containerSpecs).Apply().Push(ctx, c.ImageName, true)
+	if c.Push {
 
-	if err != nil {
-		return err
+		err := b.CBuilder.InitContainer(containerSpecs).Apply().Push(ctx, c.ImageName, true)
+
+		if err != nil {
+			return err
+		}
+
+		b.Logger.Info("Image successfully pushed",
+			zap.String("image", c.ImageName),
+		)
+
 	}
 
-	b.Logger.Info("Image successfully pushed, buildAndPush layer completed",
-		zap.String("image", c.ImageName),
-	)
+	if c.ExportToLocalTar {
+
+		o := mod.ContainerExportOptions{
+			Mode:       mod.ContainerModeExportDocker,
+			ImageRef:   c.LocalTarRef,
+			OutputPath: c.LocalTarPath,
+			Insecure:   true,
+		}
+
+		err := b.CBuilder.InitContainer(containerSpecs).Export(ctx, o)
+
+		if err != nil {
+			return err
+		}
+
+		b.Logger.Info("Image successfully exported to local",
+			zap.String("image", c.ImageName),
+		)
+
+	}
+
+	b.Logger.Info("Build and push completed")
 
 	return nil
 }

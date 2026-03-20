@@ -1,6 +1,7 @@
 package mod
 
 import (
+	"github.com/rridane/golang-pipeyard/x/mod/internal/asset_finder"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/container_builder"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/filesystem"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/github_releases_sdk"
@@ -15,6 +16,15 @@ import (
 
 type ContainerBuilder = container_builder.ContainerBuilder
 type ContainerSpec = container_builder.ContainerSpec
+
+type ContainerExportOptions = container_builder.ExportOptions
+
+const (
+	ContainerModeExportPush   container_builder.ExportMode = container_builder.ExportPush
+	ContainerModeExportDocker container_builder.ExportMode = container_builder.ExportDocker
+	ContainerModeExportOCI    container_builder.ExportMode = container_builder.ExportOCI
+	ContainerModeExportLocal  container_builder.ExportMode = container_builder.ExportLocal
+)
 
 // FileSystem
 
@@ -50,3 +60,5 @@ func NewGithubReleaseSDK(config github_releases_sdk.Config) *github_releases_sdk
 // Logger
 
 type Logger = zap.Logger
+
+type AssetFinder = asset_finder.AssetFinder

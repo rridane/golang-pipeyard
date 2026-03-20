@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/rridane/golang-pipeyard/ru"
+	"io/fs"
 	"os"
 )
 
@@ -20,6 +21,7 @@ type PipelineConfig struct {
 	LongDescription  string
 	Version          string
 	Injectors        []any
+	Assets           fs.FS
 }
 
 // RegisterStage enregistre un stage
@@ -63,11 +65,11 @@ func NewPipeline(config PipelineConfig) *Pipeline {
 	r := runtimeFactory.NewRuntime()
 	e := executor{Injectors: config.Injectors}
 
-	app := &Pipeline{
+	pipe := &Pipeline{
 		runtime:   r,
 		injectors: config.Injectors,
 		executor:  e,
 	}
 
-	return app
+	return pipe
 }

@@ -29,20 +29,21 @@ func NewCobraRuntime(cfg CobraRuntimeConfig) *CobraRuntime {
 		Version: cfg.Version,
 	}
 
+	root.CompletionOptions.DisableDefaultCmd = true
+
 	return &CobraRuntime{root: root}
 }
 
 func (r *CobraRuntime) AddCommand(cmd ru.Command) {
+
 	c := &cobra.Command{
 		Use:   cmd.Command,
 		Short: cmd.Short,
 		Long:  cmd.Long,
 	}
 
-	// 1) Déclare les flags à partir de Flag
 	declareFlags(c, cmd.Args)
 
-	// 2) RunE: parse flags -> ru.ParsedArgs -> call cmd.Exec
 	c.RunE = func(cobraCmd *cobra.Command, _ []string) error {
 		parsed, err := parseFlagsToParsedArgs(cobraCmd, cmd.Args)
 		if err != nil {

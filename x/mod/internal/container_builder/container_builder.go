@@ -16,6 +16,7 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod/internal/state_mutators"
 	"github.com/tonistiigi/fsutil"
 	"go.uber.org/zap"
+	"io"
 	"os"
 	"strings"
 )
@@ -37,6 +38,22 @@ type ContainerSpec struct {
 	EntryPoint     string
 	DockerfilePath string
 	ContextDir     string
+}
+
+type ExportMode string
+
+const (
+	ExportPush   ExportMode = "push"
+	ExportDocker ExportMode = "docker"
+	ExportOCI    ExportMode = "oci"
+	ExportLocal  ExportMode = "local"
+)
+
+type ExportOptions struct {
+	Mode       ExportMode
+	ImageRef   string
+	OutputPath string
+	Insecure   bool
 }
 
 func normalizeDockerHub(ref string) string {
@@ -404,13 +421,137 @@ func (c *ContainerBuilder) streamStatus(ch <-chan *client.SolveStatus) {
 	}
 }
 
+func (c *ContainerBuilder) Export(ctx context.Context, opts ExportOptions) error {
+	cli, err := client.New(ctx, "tcp://0.0.0.0:1234")
+	if err != nil {
+		return fmt.Errorf("buildkit connect failed: %w", err)
+	}
+	defer func() {
+		if err = cli.Close(); err != nil {
+			c.specs.Logger.Warn("failed to close buildkit client", zap.Error(err))
+		}
+	}()
+
+	def, err := c.specs.state.Marshal(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to marshal state: %w", err)
+	}
+
+	statusCh := make(chan *client.SolveStatus)
+	go c.streamStatus(statusCh)
+
+	fs, err := fsutil.NewFS(".")
+	if err != nil {
+		return fmt.Errorf("failed to access host fs: %w", err)
+	}
+
+	solveOpt := client.SolveOpt{
+		LocalMounts: map[string]fsutil.FS{
+			HostCurrentDirFs: fs,
+		},
+	}
+
+	switch opts.Mode {
+
+	case ExportPush:
+		if opts.ImageRef == "" {
+			return fmt.Errorf("imageRef is required for push export")
+		}
+
+		cfgFile := config.LoadDefaultConfigFile(os.Stderr)
+		authProvider := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
+			ConfigFile: cfgFile,
+		})
+
+		exportAttrs := map[string]string{
+			"name": opts.ImageRef,
+			"push": "true",
+		}
+		if opts.Insecure {
+			exportAttrs["registry.insecure"] = "true"
+		}
+
+		solveOpt.Session = []session.Attachable{authProvider}
+		solveOpt.Exports = []client.ExportEntry{
+			{
+				Type:  "image",
+				Attrs: exportAttrs,
+			},
+		}
+
+	case ExportDocker:
+		if opts.OutputPath == "" {
+			return fmt.Errorf("outputPath is required for docker export")
+		}
+
+		if opts.ImageRef == "" {
+			return fmt.Errorf("imageRef is required for docker export")
+		}
+
+		solveOpt.Exports = []client.ExportEntry{
+			{
+				Type: "docker",
+				Attrs: map[string]string{
+					"name": opts.ImageRef,
+				},
+				Output: func(map[string]string) (io.WriteCloser, error) {
+					return os.Create(opts.OutputPath)
+				},
+			},
+		}
+
+	case ExportOCI:
+		if opts.OutputPath == "" {
+			return fmt.Errorf("outputPath is required for oci export")
+		}
+
+		solveOpt.Exports = []client.ExportEntry{
+			{
+				Type: "oci",
+				Output: func(map[string]string) (io.WriteCloser, error) {
+					return os.Create(opts.OutputPath)
+				},
+			},
+		}
+
+	case ExportLocal:
+		if opts.OutputPath == "" {
+			return fmt.Errorf("outputPath is required for local export")
+		}
+
+		if err := os.MkdirAll(opts.OutputPath, 0o755); err != nil {
+			return fmt.Errorf("failed to create output dir: %w", err)
+		}
+
+		solveOpt.Exports = []client.ExportEntry{
+			{
+				Type:      "local",
+				OutputDir: opts.OutputPath,
+			},
+		}
+
+	default:
+		return fmt.Errorf("unknown export mode: %s", opts.Mode)
+	}
+
+	_, err = cli.Solve(ctx, def, solveOpt, statusCh)
+	if err != nil {
+		c.specs.Logger.Error("export failed", zap.Error(err), zap.String("mode", string(opts.Mode)))
+		return fmt.Errorf("export failed: %w", err)
+	}
+
+	c.specs.Logger.Info("export completed",
+		zap.String("mode", string(opts.Mode)),
+		zap.String("imageRef", opts.ImageRef),
+		zap.String("outputPath", opts.OutputPath),
+	)
+
+	return nil
+}
+
 //////////
 
 func (c *ContainerBuilder) InContainer(container string) *ContainerBuilder {
-	return c
-}
-
-func (c *ContainerBuilder) Source(file string) *ContainerBuilder {
 	return c
 }
 

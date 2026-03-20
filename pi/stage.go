@@ -1,9 +1,11 @@
 package pi
 
-import "github.com/rridane/golang-pipeyard/ru"
+import (
+	"github.com/rridane/golang-pipeyard/ru"
+)
 
 type Stage interface {
-	Configure() StageSpec
+	Configure() *StageSpec
 	//Execute(ctx context.context, args parsedArgs, ...any) error is REQUIRED FOR ANY IMPLEMENTATION, WE DO NOT DECLARE IT FOR FLEXIBILITY
 }
 
@@ -14,8 +16,8 @@ type StageSpec struct {
 	args    []ru.Flag
 }
 
-func NewStageSpec(name string) StageSpec {
-	return StageSpec{
+func NewStageSpec(name string) *StageSpec {
+	return &StageSpec{
 		command: name,
 		short:   "",
 		long:    "",
@@ -23,7 +25,7 @@ func NewStageSpec(name string) StageSpec {
 	}
 }
 
-func (s StageSpec) AddFlag(name string, flagType ru.FlagType, description string, defaultValue string, required bool) {
+func (s *StageSpec) AddFlag(name string, flagType ru.FlagType, description string, defaultValue string, required bool) {
 
 	s.args = append(s.args, ru.Flag{
 		Name:        name,
@@ -35,10 +37,6 @@ func (s StageSpec) AddFlag(name string, flagType ru.FlagType, description string
 
 }
 
-func (s StageSpec) SetDescription(long string) {
-	s.long = long
+func (s *StageSpec) SetDescription(short string) {
+	s.short = short
 }
-
-//func (s StageSpec) SetShort(short string) {
-//	s.short = short
-//}
