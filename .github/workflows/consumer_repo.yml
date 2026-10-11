@@ -25,6 +25,14 @@ env:
   # Absent on a pull request, where no deployment is measured from it.
   PIPEYARD_COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
 
+  # Read by ci/main.go, except HEADERS and COMPRESSION which the OpenTelemetry
+  # SDK reads itself. Absent, the exporters fall back to noop and the pipeline
+  # runs without recording anything.
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${{ vars.OTEL_EXPORTER_OTLP_ENDPOINT }}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${{ vars.OTEL_EXPORTER_OTLP_PROTOCOL }}
+  OTEL_EXPORTER_OTLP_COMPRESSION: ${{ vars.OTEL_EXPORTER_OTLP_COMPRESSION }}
+  OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.OTEL_EXPORTER_OTLP_HEADERS }}
+
 jobs:
   # The published binary judges the change. The toolchain comes from the
   # runner, pinned to the version go.mod asks for, so the race detector works.
