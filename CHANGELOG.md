@@ -28,6 +28,8 @@ First version meant to be used by someone other than its author.
 - `PipelineConfig.Assets` removed. It was declared and never read; the field
   that works is `AssetFinderInjector.FS`.
 - `TeamsSDK.SendNotification` returns `error`.
+- `IRelease` gains `Err() error`. An implementation outside this module has to
+  add it.
 - `mod.ContainerSpec`, `mod.ContainerExportOptions` and the four
   `mod.ContainerModeExport*` constants are gone.
 - `lay.JobInstrumentation` removed, along with `StartNewJobInstrumentation`.
@@ -40,6 +42,16 @@ First version meant to be used by someone other than its author.
 
 ### Fixed
 
+- The GitHub release chain reports its failures. Every step printed its error
+  and returned itself, so a release that created nothing still looked like it
+  worked. `IRelease.Err()` now reports the first failure and later steps
+  short-circuit. `PrepareRelease` no longer panics on a missing tag name, and a
+  422 from GitHub is told apart from a real failure so a replayed release still
+  works.
+- `UploadAssets` uploads. It fetched the release and returned without touching
+  the files it was given.
+- `WithChangelog` reports a failed commit listing instead of silently leaving
+  the body unchanged.
 - `TeamsSDK.SendNotification` returns an error instead of calling `log.Fatal`
   and `os.Exit`. An unreachable webhook used to kill the process, so a
   successful deploy followed by a failed notification produced a red job and

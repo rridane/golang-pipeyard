@@ -3,18 +3,25 @@ package github_releases_sdk
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+
 	"github.com/google/go-github/v50/github"
 	"golang.org/x/oauth2"
 )
 
-// IRelease interface fluente
+// IRelease is a fluent chain. Every step short-circuits once one has failed,
+// and Err reports the first failure — the chain cannot return an error itself.
 type IRelease interface {
 	CreateTag() IRelease
 	CreateRelease() IRelease
 	UploadAssets(assets []string) IRelease
 	Publish() IRelease
 	WithChangelog() IRelease
+	Err() error
 }
 
 // Release struct principale
@@ -28,8 +35,34 @@ type Release struct {
 	Prerelease      bool
 	Assets          []string
 	Config          Config
-	client          *github.Client
-	created         bool
+
+	// URL is the published release page, available once CreateRelease ran.
+	URL string
+
+	client  *github.Client
+	created bool
+	err     error
+}
+
+func (r *Release) Err() error { return r.err }
+
+// fail records the first failure. Later steps see it and do nothing.
+func (r *Release) fail(format string, args ...any) IRelease {
+	if r.err == nil {
+		r.err = fmt.Errorf(format, args...)
+	}
+	return r
+}
+
+// alreadyExists tells a re-run apart from a real failure: GitHub answers 422
+// when the tag or the ref is already there, which is fine when a release is
+// replayed. Anything else is a failure.
+func (r *Release) alreadyExists(err error) bool {
+	var response *github.ErrorResponse
+	if !errors.As(err, &response) || response.Response == nil {
+		return false
+	}
+	return response.Response.StatusCode == http.StatusUnprocessableEntity
 }
 
 // Configuration GitHub
@@ -93,7 +126,7 @@ func (f *ReleaseFactory) AsPrerelease(pre bool) *ReleaseFactory {
 // PrepareRelease validates the factory before any call is made.
 func (f *ReleaseFactory) PrepareRelease() IRelease {
 	if f.tagName == "" {
-		panic("GitHubRelease: tagName is required")
+		return (&Release{}).fail("github release: a tag name is required")
 	}
 	if f.releaseName == "" {
 		f.releaseName = f.tagName
@@ -110,7 +143,7 @@ func (f *ReleaseFactory) PrepareRelease() IRelease {
 		var err error
 		client, err = github.NewEnterpriseClient(f.config.BaseURL, "", tc)
 		if err != nil {
-			panic(fmt.Sprintf("GitHubRelease: failed to create enterprise client: %v", err))
+			return (&Release{}).fail("github release: enterprise client for %s: %w", f.config.BaseURL, err)
 		}
 	} else {
 		client = github.NewClient(tc)
@@ -129,26 +162,25 @@ func (f *ReleaseFactory) PrepareRelease() IRelease {
 }
 
 func (r *Release) CreateTag() IRelease {
-	if r.created {
+	if r.err != nil || r.created {
 		return r
 	}
 
-	fmt.Printf("creating tag %s on %s\n", r.TagName, r.TargetCommitish)
+	ctx := context.Background()
 
 	tag := &github.Tag{
 		Tag:     &r.TagName,
 		Message: &r.Body,
 		Object: &github.GitObject{
-			SHA:  &r.TargetCommitish, // Dans ce cas, on utilise le commitish comme référence
+			SHA:  &r.TargetCommitish,
 			Type: github.String("commit"),
 		},
 	}
 
-	ctx := context.Background()
-	_, _, err := r.client.Git.CreateTag(ctx, r.Config.Owner, r.Config.Repo, tag)
-	if err != nil {
-		fmt.Printf("tag not created, it may already exist: %v\n", err)
-		return r
+	if _, _, err := r.client.Git.CreateTag(ctx, r.Config.Owner, r.Config.Repo, tag); err != nil {
+		if !r.alreadyExists(err) {
+			return r.fail("create the tag %s: %w", r.TagName, err)
+		}
 	}
 
 	ref := &github.Reference{
@@ -159,21 +191,19 @@ func (r *Release) CreateTag() IRelease {
 		},
 	}
 
-	_, _, err = r.client.Git.CreateRef(ctx, r.Config.Owner, r.Config.Repo, ref)
-	if err != nil {
-		fmt.Printf("ref not created, it may already exist: %v\n", err)
+	if _, _, err := r.client.Git.CreateRef(ctx, r.Config.Owner, r.Config.Repo, ref); err != nil {
+		if !r.alreadyExists(err) {
+			return r.fail("create the ref for tag %s: %w", r.TagName, err)
+		}
 	}
 
-	fmt.Printf("tag %s created\n", r.TagName)
 	return r
 }
 
 func (r *Release) CreateRelease() IRelease {
-	if r.created {
+	if r.err != nil || r.created {
 		return r
 	}
-
-	fmt.Printf("creating release %s\n", r.ReleaseName)
 
 	release := &github.RepositoryRelease{
 		TagName:         &r.TagName,
@@ -184,91 +214,128 @@ func (r *Release) CreateRelease() IRelease {
 		Prerelease:      &r.Prerelease,
 	}
 
-	ctx := context.Background()
-	createdRelease, _, err := r.client.Repositories.CreateRelease(ctx, r.Config.Owner, r.Config.Repo, release)
+	created, _, err := r.client.Repositories.CreateRelease(
+		context.Background(), r.Config.Owner, r.Config.Repo, release)
 	if err != nil {
-		fmt.Printf("create the release: %v\n", err)
-		return r
+		return r.fail("create the release %s: %w", r.ReleaseName, err)
 	}
 
 	r.created = true
-	fmt.Printf("release created: %s\n", createdRelease.GetHTMLURL())
+	r.URL = created.GetHTMLURL()
+
 	return r
 }
 
+// UploadAssets attaches files to the release. It used to fetch the release and
+// return without uploading anything.
 func (r *Release) UploadAssets(assets []string) IRelease {
-	if !r.created {
-		fmt.Println("the release must be created before uploading assets")
+	if r.err != nil {
 		return r
 	}
-
-	fmt.Printf("uploading %d assets\n", len(assets))
+	if !r.created {
+		return r.fail("upload assets: the release must be created first")
+	}
 
 	ctx := context.Background()
 
-	_, _, err := r.client.Repositories.GetReleaseByTag(ctx, r.Config.Owner, r.Config.Repo, r.TagName)
+	release, _, err := r.client.Repositories.GetReleaseByTag(
+		ctx, r.Config.Owner, r.Config.Repo, r.TagName)
 	if err != nil {
-		fmt.Printf("read the release: %v\n", err)
-		return r
+		return r.fail("read the release %s: %w", r.TagName, err)
+	}
+
+	for _, asset := range assets {
+		if err := r.uploadAsset(ctx, release.GetID(), asset); err != nil {
+			return r.fail("upload %s: %w", asset, err)
+		}
 	}
 
 	return r
+}
+
+func (r *Release) uploadAsset(ctx context.Context, releaseID int64, path string) error {
+	file, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	options := &github.UploadOptions{Name: filepath.Base(path)}
+
+	_, _, err = r.client.Repositories.UploadReleaseAsset(
+		ctx, r.Config.Owner, r.Config.Repo, releaseID, options, file)
+
+	return err
 }
 
 // Publish flips the release from draft to published.
 func (r *Release) Publish() IRelease {
-	if !r.created {
-		fmt.Println("the release must be created before publishing")
+	if r.err != nil {
 		return r
 	}
-
-	fmt.Println("📢 Publishing release...")
+	if !r.created {
+		return r.fail("publish: the release must be created first")
+	}
 
 	ctx := context.Background()
-	release, _, err := r.client.Repositories.GetReleaseByTag(ctx, r.Config.Owner, r.Config.Repo, r.TagName)
+
+	release, _, err := r.client.Repositories.GetReleaseByTag(
+		ctx, r.Config.Owner, r.Config.Repo, r.TagName)
 	if err != nil {
-		fmt.Printf("read the release: %v\n", err)
-		return r
+		return r.fail("read the release %s: %w", r.TagName, err)
 	}
 
 	draft := false
-	update := &github.RepositoryRelease{
-		Draft: &draft,
+
+	if _, _, err := r.client.Repositories.EditRelease(
+		ctx, r.Config.Owner, r.Config.Repo, release.GetID(),
+		&github.RepositoryRelease{Draft: &draft}); err != nil {
+		return r.fail("publish the release %s: %w", r.TagName, err)
 	}
 
-	_, _, err = r.client.Repositories.EditRelease(ctx, r.Config.Owner, r.Config.Repo, release.GetID(), update)
-	if err != nil {
-		fmt.Printf("publish the release: %v\n", err)
-		return r
-	}
-
-	fmt.Println("release published")
 	return r
 }
 
-// WithChangelog is a stub: it does not read the commit log yet.
+// WithChangelog prepends the last commits to the release body. It lists the
+// repository's commits, not the range since the previous release, so the entries
+// are the latest ten rather than the ones this release introduces.
 func (r *Release) WithChangelog() IRelease {
-	fmt.Println("📝 Generating changelog...")
-
-	ctx := context.Background()
-
-	commits, _, err := r.client.Repositories.ListCommits(ctx, r.Config.Owner, r.Config.Repo, &github.CommitsListOptions{})
-	if err == nil && len(commits) > 0 {
-		changelog := "## Changes in this release:\n\n"
-		// Prendre les 10 derniers commits comme exemple
-		for i, commit := range commits {
-			if i >= 10 {
-				break
-			}
-			msg := commit.GetCommit().GetMessage()
-			if len(msg) > 100 {
-				msg = msg[:100] + "..."
-			}
-			changelog += fmt.Sprintf("- %s\n", msg)
-		}
-		r.Body = changelog + "\n\n" + r.Body
-		fmt.Println("changelog generated")
+	if r.err != nil {
+		return r
 	}
 
+	commits, _, err := r.client.Repositories.ListCommits(
+		context.Background(), r.Config.Owner, r.Config.Repo, &github.CommitsListOptions{})
+	if err != nil {
+		return r.fail("list the commits of %s/%s: %w", r.Config.Owner, r.Config.Repo, err)
+	}
+
+	if len(commits) == 0 {
+		return r
+	}
+
+	changelog := "## Changes in this release:\n\n"
+
+	for i, commit := range commits {
+		if i >= changelogLength {
+			break
+		}
+		changelog += fmt.Sprintf("- %s\n", summarise(commit.GetCommit().GetMessage()))
+	}
+
+	r.Body = changelog + "\n\n" + r.Body
+
 	return r
+}
+
+const (
+	changelogLength     = 10
+	changelogLineLength = 100
+)
+
+func summarise(message string) string {
+	if len(message) <= changelogLineLength {
+		return message
+	}
+	return message[:changelogLineLength] + "..."
 }

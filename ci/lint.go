@@ -10,8 +10,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// LintStage needs a reachable BuildKit daemon, which is why the GitHub
-// workflow does not call it yet.
+// LintStage needs a reachable BuildKit daemon.
 type LintStage struct{}
 
 func (s *LintStage) Configure() *pi.StageSpec {

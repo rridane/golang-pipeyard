@@ -19,8 +19,8 @@ changelog, tests and a rollback. Every stage is instrumented without declaring
 anything, so the pipeline reports its own DORA metrics. That is the part that is
 hard to get any other way.
 
-Status: **v0, API in motion.** It builds, it pushes images that run, and a
-failing stage fails the job. The rough edges are listed at the bottom.
+Status: **v0.1.0.** The API can still change between minor versions; every
+change is listed in the [CHANGELOG](CHANGELOG.md), breaking ones first.
 
 ---
 
@@ -594,33 +594,18 @@ what a project has to react to before moving its floating tag.
 
 ---
 
-## Where it stands
+## Scope
 
-What is covered, and verified against a real BuildKit daemon and registry:
-multi-stage builds, cache and secret mounts, pushing an image that actually
-starts, extracting artifacts, reading a file out of a build, a non-zero exit
-when a stage or a shell command fails.
+Pipeyard runs stages. It does not sequence them, and it does not try to.
 
-What is not there yet:
+The CI engine keeps what it does well: the order, the conditions, the matrix,
+the artifacts between jobs, the triggers. Integration tests that need a database
+next to them stay with its `services:` — BuildKit solves a hermetic graph, so
+there is no shared network to attach a Postgres to, and that is the engine's
+job anyway.
 
-- **No published image yet.** The release stage and the workflow that calls it
-  exist and have been run against a local registry, but no tag has been pushed,
-  so `rridane/pipeyard` is still empty.
-- **The release SDKs swallow their errors.** `github_releases_sdk` and its
-  GitLab counterpart return themselves for chaining, print failures and carry
-  on, and `gitlab_release_sdk` still calls `log.Fatal` on a validation error.
-  Do not rely on them yet.
-- **No git injector.** Deriving a version from tags, or finding which modules of
-  a monorepo changed, has to go through `sh.Output` —
-  which also costs the binary its hermeticity, since it then needs git on the
-  runner.
-- **No companion services.** Integration tests that need a database stay with
-  the CI engine's `services:`. BuildKit solves a hermetic graph; there is no
-  shared network to attach a Postgres to.
-- **`x/mod` is still one package.** Asking it for a `ShellExecutor` links
-  BuildKit, so every pipeline starts at 26 MB. That is the price of the
-  container builder, which is the point of the tool, but a pipeline that never
-  builds an image pays it too.
+What Pipeyard owns is the work inside a stage, and it owns it in Go: typed,
+tested, versioned, instrumented.
 
 ---
 
