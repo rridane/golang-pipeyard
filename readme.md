@@ -313,18 +313,36 @@ before_script:
 
 ## Pipeyard builds Pipeyard
 
-`ci/` is this repository's own pipeline, written with the framework. The GitHub
-workflow builds the module once as a smoke check, then calls the stages:
+`ci/` is this repository's own pipeline, written with the framework: one file
+per stage, one file for registration. The GitHub workflow compiles it once and
+calls it:
 
-```bash
-go run ./ci fmt            # gofmt, and names the files that need it
-go run ./ci vet
-go run ./ci test --timeout 5m
-go run ./ci lint           # golangci-lint in a container, needs BuildKit
+```yaml
+- name: Build
+  run: |
+    go build ./...
+    go build -o bin/pipeyard-ci ./ci
+
+- name: Format
+  run: bin/pipeyard-ci fmt
+- name: Vet
+  run: bin/pipeyard-ci vet
+- name: Test
+  run: bin/pipeyard-ci test --timeout 5m
 ```
 
-It is the shortest honest example of what a pipeline looks like here, and it is
-the first thing to break when the framework does.
+That workflow is now nearly all of the YAML this project will ever need. Adding
+a stage, changing a flag or fixing a check happens in Go, under test, and runs
+the same way on a laptop:
+
+```bash
+go build -o bin/pipeyard-ci ./ci
+bin/pipeyard-ci fmt
+bin/pipeyard-ci test --pkg ./pi/ --race=false
+bin/pipeyard-ci lint            # golangci-lint in a container, needs BuildKit
+```
+
+No push, no failed job, no second push.
 
 ---
 

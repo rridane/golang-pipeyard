@@ -18,17 +18,18 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Smoke check: the pipeline below is itself a Go program in this module,
-      # so it cannot run if the module does not build.
+      # Compile the whole module, then the pipeline binary. Everything below
+      # calls that binary, so nothing here needs to change when a stage does.
       - name: Build
-        run: go build ./...
+        run: |
+          go build ./...
+          go build -o bin/pipeyard-ci ./ci
 
-      # From here on, Pipeyard runs its own pipeline.
       - name: Format
-        run: go run ./ci fmt
+        run: bin/pipeyard-ci fmt
 
       - name: Vet
-        run: go run ./ci vet
+        run: bin/pipeyard-ci vet
 
       - name: Test
-        run: go run ./ci test --timeout 5m
+        run: bin/pipeyard-ci test --timeout 5m

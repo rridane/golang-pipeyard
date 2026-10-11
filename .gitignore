@@ -7,3 +7,6 @@
 
 # OpenTelemetry local dev
 examples/_otel_local/data/
+
+# Local build output
+bin/
