@@ -1,0 +1,105 @@
+# What the repository that owns a pipeline writes. Two jobs, because this
+# repository has two duties no consumer has: proving that a change to the
+# pipeline produces a working pipeline, and publishing it.
+name: Pipeline builder repo
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PIPEYARD_PROJECT: ${{ github.repository }}
+  PIPEYARD_BRANCH: ${{ github.ref_name }}
+  PIPEYARD_COMMIT_SHA: ${{ github.sha }}
+  PIPEYARD_COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
+
+jobs:
+  # The pipeline this commit produces, run once. That a change to ci/ compiles
+  # is already settled by the consumer jobs, which run go build and go vet over
+  # the whole tree; what only this job can catch is a stage that compiles and
+  # then misbehaves. Failing here says the pipeline is broken, not the code.
+  pipeline:
+    if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build this commit's pipeline and run it
+        run: |
+          go build -o bin/pipeyard-ci ./ci
+          bin/pipeyard-ci vet
+
+  # A tag publishes the image and the binary. Built from source on purpose: the
+  # release logic is part of what a commit can change, so releasing with the
+  # previous binary would ship the previous recipe and a fix to the release
+  # stage could never land.
+  release:
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write   # the release and its asset
+      packages: write   # ghcr.io
+
+    env:
+      PIPEYARD_REGISTRY_HOST: ghcr.io
+      PIPEYARD_REGISTRY_USER: ${{ github.actor }}
+      PIPEYARD_REGISTRY_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The release stage drives BuildKit over gRPC, so a daemon has to be up.
+      # A service container cannot do it: buildkitd takes its listening address
+      # from a flag, and services take no command arguments.
+      - name: Start BuildKit
+        run: |
+          docker run -d --name buildkit --privileged \
+            -p 1234:1234 moby/buildkit:v0.34.0 --addr tcp://0.0.0.0:1234
+          timeout 60 sh -c 'until docker logs buildkit 2>&1 | grep -q "running server"; do sleep 1; done'
+
+      - name: Build the pipeline
+        run: go build -o bin/pipeyard-ci ./ci
+
+      # Twice, once per registry. The second build reuses the BuildKit cache,
+      # and each run is instrumented on its own. The builder authenticates
+      # itself from PIPEYARD_REGISTRY_*, so no credential reaches the disk.
+      - name: Publish to GHCR
+        run: bin/pipeyard-ci release --version "${GITHUB_REF_NAME#v}" --push
+             --image ghcr.io/rridane/pipeyard
+
+      - name: Publish to Docker Hub
+        run: bin/pipeyard-ci release --version "${GITHUB_REF_NAME#v}" --push
+             --image rridane/pipeyard
+        env:
+          PIPEYARD_REGISTRY_HOST: docker.io
+          PIPEYARD_REGISTRY_USER: ${{ secrets.DOCKERHUB_USER }}
+          PIPEYARD_REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # The binary every other run downloads. Attached while the release is
+      # still a draft, so no run can fetch a release without it.
+      - name: Publish the binary
+        run: bin/pipeyard-ci publish --version "${GITHUB_REF_NAME#v}"
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
