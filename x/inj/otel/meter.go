@@ -9,8 +9,6 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"time"
 )
 
@@ -46,14 +44,10 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 		return noop.NewMeterProvider()
 	}
 
-	res, _ := resource.New(ctx,
-		resource.WithAttributes(semconv.ServiceName(m.ServiceName)),
-	)
-
 	mp := sdkmetric.NewMeterProvider(
 		sdkmetric.WithReader(sdkmetric.NewPeriodicReader(exporter,
 			sdkmetric.WithInterval(10*time.Second))),
-		sdkmetric.WithResource(res),
+		sdkmetric.WithResource(runResource(ctx, m.ServiceName, false)),
 	)
 	otel.SetMeterProvider(mp)
 	return mp

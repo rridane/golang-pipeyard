@@ -1,7 +1,6 @@
 package lay
 
 import (
-	"os"
 	"time"
 
 	"context"
@@ -100,34 +99,18 @@ func (o *StageObserver) seriesAttributes(stage string, args ru.ParsedArgs) []att
 // commitAttributes identify the change under test. They land on the span, which
 // is where lead time for changes is computed from.
 func (o *StageObserver) commitAttributes() []attribute.KeyValue {
+
+	run := pi.ReadIdentity()
+
 	var attrs []attribute.KeyValue
 
-	if sha := o.commitSHA(); sha != "" {
-		attrs = append(attrs, attribute.String("commit_sha", sha))
+	if run.CommitSHA != "" {
+		attrs = append(attrs, attribute.String("commit_sha", run.CommitSHA))
 	}
-	if at := o.commitTime(); at != "" {
-		attrs = append(attrs, attribute.String("commit_time", at))
+	if run.CommitTime != "" {
+		attrs = append(attrs, attribute.String("commit_time", run.CommitTime))
 	}
 	return attrs
-}
-
-// GitLab exposes the commit timestamp, GitHub Actions does not, hence the
-// override.
-func (o *StageObserver) commitSHA() string {
-	return o.firstEnv("PIPEYARD_COMMIT_SHA", "GITHUB_SHA", "CI_COMMIT_SHA")
-}
-
-func (o *StageObserver) commitTime() string {
-	return o.firstEnv("PIPEYARD_COMMIT_TIME", "CI_COMMIT_TIMESTAMP")
-}
-
-func (o *StageObserver) firstEnv(names ...string) string {
-	for _, name := range names {
-		if value := os.Getenv(name); value != "" {
-			return value
-		}
-	}
-	return ""
 }
 
 func (o *StageObserver) closeSpan(span trace.Span, err error, elapsed time.Duration, attrs []attribute.KeyValue) {

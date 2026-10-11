@@ -6,9 +6,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 )
@@ -47,13 +45,9 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 		return noop.NewTracerProvider()
 	}
 
-	res, _ := resource.New(ctx,
-		resource.WithAttributes(semconv.ServiceName(t.ServiceName)),
-	)
-
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(res),
+		sdktrace.WithResource(runResource(ctx, t.ServiceName, true)),
 	)
 	otel.SetTracerProvider(tp)
 	return tp
