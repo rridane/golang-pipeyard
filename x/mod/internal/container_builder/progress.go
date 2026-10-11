@@ -7,9 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// progress transforme le statusCh de statuts de BuildKit en lines de log.
-// Graph vertices and command output end up in the same place as the rest of
-// the pipeline, hence in the same traces.
+// progress turns BuildKit's status stream into log lines.
 type progress struct {
 	logger *zap.Logger
 }
@@ -21,7 +19,6 @@ func (p progress) consume(statusCh <-chan *client.SolveStatus) {
 	}
 }
 
-// reportSteps logs the progress of the graph vertices.
 func (p progress) reportSteps(status *client.SolveStatus) {
 	for _, vertex := range status.Vertexes {
 		switch {
@@ -37,7 +34,6 @@ func (p progress) reportSteps(status *client.SolveStatus) {
 	}
 }
 
-// reportOutput logs what the commands write on stdout and stderr.
 func (p progress) reportOutput(status *client.SolveStatus) {
 	for _, entry := range status.Logs {
 		text := strings.TrimRight(string(entry.Data), "\n")

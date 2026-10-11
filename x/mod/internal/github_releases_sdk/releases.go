@@ -52,7 +52,6 @@ type ReleaseFactory struct {
 	config          Config
 }
 
-// NewGithubReleaseSDK crée une nouvelle factory
 func NewGithubReleaseSDK(config Config) *ReleaseFactory {
 	return &ReleaseFactory{
 		targetCommitish: "main",
@@ -91,7 +90,7 @@ func (f *ReleaseFactory) AsPrerelease(pre bool) *ReleaseFactory {
 	return f
 }
 
-// PrepareRelease prépare la release avec validation
+// PrepareRelease validates the factory before any call is made.
 func (f *ReleaseFactory) PrepareRelease() IRelease {
 	if f.tagName == "" {
 		panic("GitHubRelease: tagName is required")
@@ -129,7 +128,6 @@ func (f *ReleaseFactory) PrepareRelease() IRelease {
 	}
 }
 
-// CreateTag crée un tag Git sur GitHub
 func (r *Release) CreateTag() IRelease {
 	if r.created {
 		return r
@@ -137,7 +135,6 @@ func (r *Release) CreateTag() IRelease {
 
 	fmt.Printf("🏷️  Creating tag %s on %s...\n", r.TagName, r.TargetCommitish)
 
-	// Création du tag
 	tag := &github.Tag{
 		Tag:     &r.TagName,
 		Message: &r.Body,
@@ -154,7 +151,6 @@ func (r *Release) CreateTag() IRelease {
 		return r
 	}
 
-	// Création de la référence
 	ref := &github.Reference{
 		Ref: github.String("refs/tags/" + r.TagName),
 		Object: &github.GitObject{
@@ -172,7 +168,6 @@ func (r *Release) CreateTag() IRelease {
 	return r
 }
 
-// CreateRelease crée la release GitHub
 func (r *Release) CreateRelease() IRelease {
 	if r.created {
 		return r
@@ -201,7 +196,6 @@ func (r *Release) CreateRelease() IRelease {
 	return r
 }
 
-// UploadAssets télécharge les assets sur la release
 func (r *Release) UploadAssets(assets []string) IRelease {
 	if !r.created {
 		fmt.Println("⚠️  Release must be created before uploading assets")
@@ -212,7 +206,6 @@ func (r *Release) UploadAssets(assets []string) IRelease {
 
 	ctx := context.Background()
 
-	// Récupérer la release par son tag
 	_, _, err := r.client.Repositories.GetReleaseByTag(ctx, r.Config.Owner, r.Config.Repo, r.TagName)
 	if err != nil {
 		fmt.Printf("❌ Failed to get release: %v\n", err)
@@ -222,7 +215,7 @@ func (r *Release) UploadAssets(assets []string) IRelease {
 	return r
 }
 
-// Publish publie la release (passe de draft à publiée)
+// Publish flips the release from draft to published.
 func (r *Release) Publish() IRelease {
 	if !r.created {
 		fmt.Println("⚠️  Release must be created before publishing")
@@ -238,7 +231,6 @@ func (r *Release) Publish() IRelease {
 		return r
 	}
 
-	// Mettre à jour la release pour la publier
 	draft := false
 	update := &github.RepositoryRelease{
 		Draft: &draft,
@@ -254,15 +246,12 @@ func (r *Release) Publish() IRelease {
 	return r
 }
 
-// WithChangelog génère un changelog automatique (exemple basique)
+// WithChangelog is a stub: it does not read the commit log yet.
 func (r *Release) WithChangelog() IRelease {
 	fmt.Println("📝 Generating changelog...")
 
-	// Récupérer les commits depuis la dernière release
 	ctx := context.Background()
 
-	// Cette partie pourrait être enrichie avec la récupération des commits
-	// et la génération d'un vrai changelog
 	commits, _, err := r.client.Repositories.ListCommits(ctx, r.Config.Owner, r.Config.Repo, &github.CommitsListOptions{})
 	if err == nil && len(commits) > 0 {
 		changelog := "## Changes in this release:\n\n"

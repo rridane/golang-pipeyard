@@ -10,9 +10,7 @@ type Flag struct {
 
 type FlagType string
 
-// Every FlagType listed here is declared and parsed by the runtime. A type that
-// the runtime cannot handle has no reason to exist here: declaring it would make
-// the stage impossible to run.
+// Every FlagType here is declared and parsed by the runtime.
 const (
 	BoolFlag     FlagType = "bool"
 	StringFlag   FlagType = "string"

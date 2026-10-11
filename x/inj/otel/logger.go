@@ -31,12 +31,11 @@ type TelemetryLoggerInjector struct {
 	OtelInsecure bool
 }
 
-// Inject crée un logger configuré pour le stage demandé
 func (l *TelemetryLoggerInjector) Inject(stageName string) *zap.Logger {
 	return l.newLogger(stageName)
 }
 
-// newLogger construit un logger combinant stdout + OTLP (optionnel)
+// newLogger combines a stdout core with an optional OTLP one.
 func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 	level := l.LogLevel
 
@@ -57,12 +56,10 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 				fmt.Printf("⚠️  Impossible d'initialiser OTLP Log Exporter: %v\n", err)
 			} else {
 				cores = append(cores, NewOtelZapCore(lp))
-				//fmt.Println("✅ OTLP Log Exporter activé :", endpoint)
 			}
 		}
 	}
 
-	// === Logger combiné ===
 	logger := zap.New(zapcore.NewTee(cores...))
 
 	fmt.Printf("📘 Niveau de log configuré: %s\n", level)
@@ -70,7 +67,6 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 	return logger
 }
 
-// initOtelLogProvider configure le pipeline OpenTelemetry pour l’export des logs
 func (l *TelemetryLoggerInjector) initOtelLogProvider(stageName, endpoint string) (*sdklog.LoggerProvider, error) {
 	ctx := context.Background()
 
@@ -114,14 +110,13 @@ func (l *TelemetryLoggerInjector) Shutdown(ctx context.Context) {
 	}
 }
 
-// otelZapCore implémente zapcore.Core et redirige les logs Zap vers OpenTelemetry Logs.
+// otelZapCore bridges Zap records to OpenTelemetry logs.
 type otelZapCore struct {
 	provider *sdklog.LoggerProvider
 }
 
-// NewOtelZapCore crée un core Zap qui exporte les logs vers le provider OTel.
 func NewOtelZapCore(provider *sdklog.LoggerProvider) zapcore.Core {
-	// Enregistre ce provider globalement pour que global.Logger() le voie
+	// Set globally so global.Logger() sees it.
 	global.SetLoggerProvider(provider)
 	return &otelZapCore{provider: provider}
 }
@@ -140,22 +135,18 @@ func (o *otelZapCore) Check(entry zapcore.Entry, ce *zapcore.CheckedEntry) *zapc
 func (o *otelZapCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	ctx := context.Background()
 
-	// On récupère le logger depuis le provider (API publique)
 	logger := o.provider.Logger("zap_bridge")
 
-	// Création du record selon l'API log
 	record := log.Record{}
 	record.SetTimestamp(entry.Time)
 	record.SetObservedTimestamp(time.Now())
 	record.SetSeverityText(entry.Level.String())
 	record.SetBody(log.StringValue(entry.Message))
 
-	// Convertit les champs zap en attributs log.KeyValue
 	for _, f := range fields {
 		record.AddAttributes(log.String(f.Key, f.String))
 	}
 
-	// On émet le record via l’API publique (Emit renvoie void)
 	logger.Emit(ctx, record)
 	return nil
 }

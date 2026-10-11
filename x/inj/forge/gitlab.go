@@ -5,7 +5,7 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
-// GitlabReleaseInjector fournit une ReleaseFactory Gitlab configurée explicitement.
+// GitlabReleaseInjector provides an explicitly configured GitLab ReleaseFactory.
 type GitlabReleaseInjector struct {
 	Token        string
 	ProjectId    string
@@ -14,7 +14,6 @@ type GitlabReleaseInjector struct {
 	ReleasePage  string
 }
 
-// Inject construit et renvoie une ReleaseFactory Gitlab configurée.
 func (g *GitlabReleaseInjector) Inject(stageName string) *mod.GitlabRelease {
 	fmt.Printf("🔧 Injection de GitlabReleaseFactory pour le stage %s\n", stageName)
 

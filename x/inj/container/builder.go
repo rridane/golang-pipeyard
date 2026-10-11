@@ -34,9 +34,9 @@ func (d *ContainerBuilderInjector) Inject(stageName string) *mod.ContainerBuilde
 	return &mod.ContainerBuilder{}
 }
 
-// generateDockerConfig crée ou remplace ~/.docker/config.json
+// generateDockerConfig overwrites ~/.docker/config.json entirely.
 func (d *ContainerBuilderInjector) generateDockerConfig() error {
-	// Fallback : si les credentials ne sont pas fournis, on tente via env
+	// Fall back to the environment when no credentials were given.
 	if d.DockerUsername == "" {
 		d.DockerUsername = os.Getenv("DOCKER_USERNAME")
 	}
@@ -50,7 +50,6 @@ func (d *ContainerBuilderInjector) generateDockerConfig() error {
 
 	auth := base64.StdEncoding.EncodeToString([]byte(fmt.Sprintf("%s:%s", d.DockerUsername, d.DockerPassword)))
 
-	// Structure JSON conforme
 	config := map[string]interface{}{
 		"auths": map[string]interface{}{
 			"https://index.docker.io/v1/": map[string]string{
@@ -64,16 +63,13 @@ func (d *ContainerBuilderInjector) generateDockerConfig() error {
 		return fmt.Errorf("failed to marshal docker config: %w", err)
 	}
 
-	// Chemin ~/.docker/config.json
 	dockerConfigDir := filepath.Join(os.Getenv("HOME"), ".docker")
 	dockerConfigFile := filepath.Join(dockerConfigDir, "config.json")
 
-	// Création du dossier si nécessaire
 	if err := os.MkdirAll(dockerConfigDir, 0700); err != nil {
 		return fmt.Errorf("failed to create .docker dir: %w", err)
 	}
 
-	// Écriture (avec écrasement)
 	if err := os.WriteFile(dockerConfigFile, data, 0600); err != nil {
 		return fmt.Errorf("failed to write docker config: %w", err)
 	}

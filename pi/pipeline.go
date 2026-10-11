@@ -14,7 +14,6 @@ type Pipeline struct {
 	executor  executor
 }
 
-// PipelineConfig configures the application.
 type PipelineConfig struct {
 	Name             string
 	ShortDescription string
@@ -24,12 +23,8 @@ type PipelineConfig struct {
 	Assets           fs.FS
 }
 
-// RegisterStage adds a stage to the pipeline.
-//
-// It panics when the stage's Execute method cannot be dispatched. Execute is
-// deliberately absent from the Stage interface, so the compiler cannot catch a
-// wrong signature; registration is the only place left to catch it, and a
-// pipeline that cannot report failure must not start at all.
+// RegisterStage panics on a stage whose Execute cannot be dispatched. Execute
+// is absent from the Stage interface by design, so the compiler cannot check it.
 func (p *Pipeline) RegisterStage(stage Stage) *Pipeline {
 
 	stageSpec := stage.Configure()
@@ -51,15 +46,14 @@ func (p *Pipeline) RegisterStage(stage Stage) *Pipeline {
 	return p
 }
 
-// Run executes the CLI. The runtime reports any error to the user; Run only
-// turns it into a non-zero exit status, which is what the CI engine reads.
+// Run turns a runtime error into a non-zero exit status. The runtime has
+// already reported it to the user.
 func (p *Pipeline) Run(ctx context.Context) {
 	if err := p.runtime.Process(ctx); err != nil {
 		os.Exit(1)
 	}
 }
 
-// NewPipeline creates a new pipeline.
 func NewPipeline(config PipelineConfig) *Pipeline {
 
 	runtimeFactory := RuntimeFactory{

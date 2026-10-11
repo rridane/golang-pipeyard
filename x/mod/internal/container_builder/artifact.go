@@ -12,21 +12,14 @@ import (
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
 )
 
-// Artifact is the result of a successful build. It knows the recipe that
-// produced it, which lets it deliver to another destination — a registry, the
-// host disk — without rebuilding: BuildKit's content-addressed cache makes
-// those redeliveries immediate.
 type Artifact struct {
 	builder *ContainerBuilder
 	request BuildRequest
 	image   *dockerspec.DockerOCIImage
 }
 
-// Config returns the produced image's configuration: entrypoint, user, ports,
-// environment variables, labels. That is what makes it start.
 func (a *Artifact) Config() *dockerspec.DockerOCIImage { return a.image }
 
-// Push publishes the image to a registry under the given reference.
 func (a *Artifact) Push(ctx context.Context, ref string) error {
 	return a.deliverTo(ctx, a.toRegistry(ref), fmt.Sprintf("push %s", ref))
 }
@@ -38,20 +31,14 @@ func (a *Artifact) PushInsecure(ctx context.Context, ref string) error {
 	return a.deliverTo(ctx, target, fmt.Sprintf("push %s", ref))
 }
 
-// SaveTar writes the image to an archive that `docker load` can read.
 func (a *Artifact) SaveTar(ctx context.Context, ref, path string) error {
 	return a.deliverTo(ctx, a.toTarball(ref, path), fmt.Sprintf("save tarball to %s", path))
 }
 
-// ExtractTo copies a path out of the image onto the host disk. This is how a
-// stage collects its build artifacts: jars, binaries, reports.
-// The source path accepts wildcards, which jar names need.
 func (a *Artifact) ExtractTo(ctx context.Context, from, hostDir string) error {
 	return a.deliverTo(ctx, a.toHostDir(from, hostDir), fmt.Sprintf("extract %s to %s", from, hostDir))
 }
 
-// ReadFile reads one file from the image without going through the disk.
-// Useful to bring a value computed by the build back into the stage's Go code.
 func (a *Artifact) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	daemon, err := a.builder.connect(ctx)
 	if err != nil {
@@ -62,7 +49,6 @@ func (a *Artifact) ReadFile(ctx context.Context, path string) ([]byte, error) {
 	return daemon.ReadFile(ctx, a.request, path)
 }
 
-// deliverTo is the common delivery path: open, solve, close.
 func (a *Artifact) deliverTo(ctx context.Context, target exportTarget, operation string) error {
 	daemon, err := a.builder.connect(ctx)
 	if err != nil {
@@ -76,20 +62,15 @@ func (a *Artifact) deliverTo(ctx context.Context, target exportTarget, operation
 	return nil
 }
 
-/* ─────────── The possible destinations ─────────── */
-
-// exportTarget describes what the daemon must do with the result.
 // Its zero value means export nothing: the graph is executed, that is all.
 type exportTarget struct {
 	entries []client.ExportEntry
 
-	// subtree narrows the result to one path. Without it the local exporter
-	// would dump the image's whole filesystem onto the disk.
+	// Without it the local exporter dumps the image's whole filesystem on disk.
+	// Wildcards are accepted: a Maven jar name is not known in advance.
 	subtree string
 }
 
-// narrow reduces the result to the requested subtree. Wildcards are accepted:
-// a Maven jar is named app-1.4.0-SNAPSHOT.jar, its exact name is unknown.
 func (t exportTarget) narrow(state llb.State) llb.State {
 	if t.subtree == "" {
 		return state

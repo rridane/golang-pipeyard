@@ -21,7 +21,6 @@ type Dockerfile struct {
 	Args     any
 }
 
-// Render produces a valid Dockerfile, usable as is with `docker build`.
 func (d Dockerfile) Render() string {
 	body := d.body()
 
@@ -41,8 +40,6 @@ func (d Dockerfile) Render() string {
 	return strings.TrimSpace(rendered.String())
 }
 
-// String lets one recipe be injected into another's template.
-// That is the whole composition mechanism.
 func (d Dockerfile) String() string { return d.Render() }
 
 // Stages delegates parsing to BuildKit, the only authority on the syntax.
@@ -58,7 +55,6 @@ func (d Dockerfile) Stages() ([]instructions.Stage, error) {
 	return stages, nil
 }
 
-// body strips the template's common indentation.
 func (d Dockerfile) body() string {
 	lines := strings.Split(strings.Trim(d.Template, "\n"), "\n")
 

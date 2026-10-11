@@ -1,7 +1,5 @@
-// Command ci is the pipeline that builds Pipeyard itself.
-//
-// Each stage is one invocation. The GitHub workflow calls them in order; it
-// keeps the sequencing, this binary does the work.
+// Command ci is the pipeline that builds Pipeyard itself. Each stage is one
+// invocation; the GitHub workflow keeps the sequencing.
 package main
 
 import (
@@ -19,9 +17,6 @@ import (
 	"go.uber.org/zap"
 )
 
-/* ───────────────────────── fmt ───────────────────────── */
-
-// FormatStage fails when a file is not gofmt'd, and names the files.
 type FormatStage struct{}
 
 func (s *FormatStage) Configure() *pi.StageSpec {
@@ -45,8 +40,6 @@ func (s *FormatStage) Execute(ctx context.Context, args ru.ParsedArgs, sh *mod.S
 	return nil
 }
 
-/* ───────────────────────── test ───────────────────────── */
-
 type TestStage struct{}
 
 func (s *TestStage) Configure() *pi.StageSpec {
@@ -69,8 +62,6 @@ func (s *TestStage) Execute(ctx context.Context, args ru.ParsedArgs, sh *mod.She
 	return sh.Run(ctx, fmt.Sprintf("go test %s %s", flags, args.String("pkg")))
 }
 
-/* ───────────────────────── vet ───────────────────────── */
-
 type VetStage struct{}
 
 func (s *VetStage) Configure() *pi.StageSpec {
@@ -87,11 +78,8 @@ func (s *VetStage) Execute(ctx context.Context, args ru.ParsedArgs, sh *mod.Shel
 	return nil
 }
 
-/* ───────────────────────── lint ───────────────────────── */
-
-// LintStage runs golangci-lint in a container, so no one has to install it.
-// It needs a reachable BuildKit daemon, which is why the GitHub workflow does
-// not call it yet.
+// LintStage needs a reachable BuildKit daemon, which is why the GitHub
+// workflow does not call it yet.
 type LintStage struct{}
 
 func (s *LintStage) Configure() *pi.StageSpec {

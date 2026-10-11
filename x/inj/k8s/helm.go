@@ -6,15 +6,13 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 )
 
-// HelmInjector configure une instance Helm explicitement.
-// Si aucun KubeConfigPath n'est fourni, il tentera d'utiliser la configuration in-cluster.
+// HelmInjector falls back to the in-cluster configuration when KubeConfigPath is empty.
 type HelmInjector struct {
 	KubeConfigPath string // Chemin vers le fichier kubeconfig (facultatif)
 	Namespace      string // Namespace cible (ex: "default", "prod")
 	StorageDriver  string // "secret" ou "configmap" (Helm backend)
 }
 
-// Inject initialise et renvoie la configuration Helm pour le stage donné.
 func (h *HelmInjector) Inject(stageName string) *action.Configuration {
 	fmt.Printf("🔧 Injection de Helm Configuration pour le stage %s\n", stageName)
 

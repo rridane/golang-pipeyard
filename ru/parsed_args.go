@@ -108,7 +108,6 @@ func (a *ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys, durationKeys []stri
 
 /* ----------------- Setters ----------------- */
 
-// SetString records (or overwrites) a string value.
 func (a *ParsedArgs) SetString(name, value string) {
 	if a.stringParams == nil {
 		a.stringParams = make(map[string]string)
@@ -116,7 +115,6 @@ func (a *ParsedArgs) SetString(name, value string) {
 	a.stringParams[name] = value
 }
 
-// SetBool records (or overwrites) a bool value.
 func (a *ParsedArgs) SetBool(name string, value bool) {
 	if a.boolParams == nil {
 		a.boolParams = make(map[string]bool)
@@ -124,7 +122,6 @@ func (a *ParsedArgs) SetBool(name string, value bool) {
 	a.boolParams[name] = value
 }
 
-// SetInt records (or overwrites) an int value.
 func (a *ParsedArgs) SetInt(name string, value int) {
 	if a.intParams == nil {
 		a.intParams = make(map[string]int)
@@ -132,7 +129,6 @@ func (a *ParsedArgs) SetInt(name string, value int) {
 	a.intParams[name] = value
 }
 
-// SetDuration records (or overwrites) a duration value.
 func (a *ParsedArgs) SetDuration(name string, value time.Duration) {
 	if a.durationParams == nil {
 		a.durationParams = make(map[string]time.Duration)

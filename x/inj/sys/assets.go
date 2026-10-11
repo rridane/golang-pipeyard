@@ -15,5 +15,4 @@ func (d *AssetFinderInjector) Inject(stageName string) *mod.AssetFinder {
 		return &mod.AssetFinder{FS: d.FS}
 	}
 	return nil
-	//return &mod.AssetFinder{FS: embeddedAssets}
 }

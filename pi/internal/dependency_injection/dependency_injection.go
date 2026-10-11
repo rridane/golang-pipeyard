@@ -5,8 +5,6 @@ import (
 	"reflect"
 )
 
-// return serviceA reflect value for a method Method(serviceA) if injector of ServiceA is active
-// Method ...params
 func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName string) ([]reflect.Value, error) {
 
 	var arg []reflect.Value
@@ -38,9 +36,8 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 
 			injectedService := injectResponse[0]
 
-			// An injector signals "not configured" by returning nil, which only a
-			// nilable kind can do. One that returns a value always provides its
-			// dependency, and asking IsNil of it would panic.
+			// An injector signals "not configured" with nil, which only a nilable
+			// kind can do. IsNil on anything else panics.
 			switch injectedService.Kind() {
 			case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
 				if injectedService.IsNil() {

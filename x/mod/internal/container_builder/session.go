@@ -21,11 +21,8 @@ import (
 	"go.uber.org/zap"
 )
 
-// frontendName identifies Pipeyard to the daemon in its traces.
 const frontendName = "pipeyard"
 
-// daemon is an open BuildKit connection. Every operation that reaches the
-// daemon goes through it, and it is closed explicitly.
 type daemon struct {
 	client *client.Client
 	logger *zap.Logger
@@ -48,8 +45,6 @@ func (d *daemon) Close() {
 	}
 }
 
-// Solve runs the recipe and delivers the result to the requested target.
-// An empty target runs the graph without exporting anything, which is what Build does.
 func (d *daemon) Solve(ctx context.Context, req BuildRequest, target exportTarget) (*dockerspec.DockerOCIImage, error) {
 	options, err := req.solveOptions(target)
 	if err != nil {
@@ -80,9 +75,6 @@ func (d *daemon) Solve(ctx context.Context, req BuildRequest, target exportTarge
 	return image, nil
 }
 
-// ReadFile runs the recipe and reads one file from the result without going
-// through the host disk. This is how a stage retrieves a value computed by its
-// build: a coverage report, a version, a manifest.
 func (d *daemon) ReadFile(ctx context.Context, req BuildRequest, path string) ([]byte, error) {
 	options, err := req.solveOptions(exportTarget{})
 	if err != nil {
@@ -117,14 +109,11 @@ func (d *daemon) ReadFile(ctx context.Context, req BuildRequest, path string) ([
 	return content, nil
 }
 
-// watch opens the progress channel and drains it into the logger.
 func (d *daemon) watch(ctx context.Context) chan *client.SolveStatus {
 	statusCh := make(chan *client.SolveStatus)
 	go progress{logger: d.logger}.consume(statusCh)
 	return statusCh
 }
-
-/* ─────────── The three steps of a build, gateway side ─────────── */
 
 // compile turns the recipe into an LLB graph and returns the configuration of
 // the image the Dockerfile describes (ENTRYPOINT, USER, ENV, ports, labels).
@@ -147,8 +136,6 @@ func (r BuildRequest) compile(ctx context.Context, gw gateway.Client) (llb.State
 	return *state, image, nil
 }
 
-// execute asks the daemon to solve the graph and returns a reference to the
-// resulting filesystem.
 func (r BuildRequest) execute(ctx context.Context, gw gateway.Client, state llb.State) (gateway.Reference, error) {
 	definition, err := state.Marshal(ctx)
 	if err != nil {
@@ -181,10 +168,6 @@ func (r BuildRequest) deliver(ref gateway.Reference, image *dockerspec.DockerOCI
 	return result, nil
 }
 
-/* ─────────── What the daemon receives ─────────── */
-
-// solveOptions assembles everything the daemon needs to know: the build
-// context, the secrets, the registry credentials, and where the result goes.
 func (r BuildRequest) solveOptions(target exportTarget) (client.SolveOpt, error) {
 	buildCtx, err := fsutil.NewFS(r.contextDir())
 	if err != nil {

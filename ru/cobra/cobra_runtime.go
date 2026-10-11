@@ -22,7 +22,6 @@ type CobraRuntimeConfig struct {
 	Version string
 }
 
-// NewCobraRuntime construit le runtime Cobra (root command)
 func NewCobraRuntime(cfg CobraRuntimeConfig) *CobraRuntime {
 	root := &cobra.Command{
 		Use:     cfg.Name,
@@ -66,14 +65,9 @@ func (r *CobraRuntime) Process(ctx context.Context) error {
 	return r.root.Execute()
 }
 
-/* ----------------------- Flags: declaration ----------------------- */
-
-// declareFlags registers every flag of a stage on its cobra command.
-//
-// It panics on a spec the runtime cannot honour — an unknown flag type, or a
-// default value that cannot be read as the flag's type. Both are programming
-// errors in the stage's Configure, and a stage whose flags are wrong cannot run
-// anyway: better at startup than as a wrong value silently passed to the stage.
+// declareFlags panics on a spec the runtime cannot honour: an unknown flag
+// type, or a default that cannot be read as the flag's type. Both are errors
+// in the stage's Configure, and silently passing a zero value would be worse.
 func declareFlags(c *cobra.Command, specs []ru.Flag) {
 	for _, s := range specs {
 
@@ -98,10 +92,8 @@ func declareFlags(c *cobra.Command, specs []ru.Flag) {
 	}
 }
 
-// flagDefault reads a flag's declared default into the type the flag needs.
-// It accepts both a typed value and its string form, so that AddFlag("jobs",
-// ru.IntFlag, ..., 4, ...) and AddFlag("jobs", ru.IntFlag, ..., "4", ...) both
-// yield 4 — and a value that cannot be read at all is reported, not dropped.
+// flagDefault accepts a default as a typed value or as its string form, so
+// AddFlag(..., 4, ...) and AddFlag(..., "4", ...) both yield 4.
 type flagDefault struct {
 	flag ru.Flag
 }
@@ -182,8 +174,6 @@ func (d flagDefault) unreadable(want string, cause error) string {
 	}
 	return fmt.Sprintf("flag %q: default %#v cannot be read as %s", d.flag.Name, d.flag.Default, want)
 }
-
-/* ----------------------- Flags: parsing -> ParsedArgs ----------------------- */
 
 func parseFlagsToParsedArgs(c *cobra.Command, specs []ru.Flag) (ru.ParsedArgs, error) {
 

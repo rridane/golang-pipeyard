@@ -5,7 +5,7 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
-// GitHubReleaseInjector fournit une ReleaseFactory GitHub configurée explicitement.
+// GitHubReleaseInjector provides an explicitly configured GitHub ReleaseFactory.
 type GitHubReleaseInjector struct {
 	Token      string
 	Owner      string
@@ -14,7 +14,6 @@ type GitHubReleaseInjector struct {
 	BaseURL    string
 }
 
-// Inject construit et renvoie une ReleaseFactory GitHub configurée.
 func (g *GitHubReleaseInjector) Inject(stageName string) *mod.GithubReleaseSDK {
 	fmt.Printf("🔧 Injection de GitHubReleaseFactory pour le stage %s\n", stageName)
 

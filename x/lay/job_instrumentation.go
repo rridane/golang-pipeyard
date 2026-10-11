@@ -21,7 +21,6 @@ type JobInstrumentation struct {
 	StageName    string
 }
 
-// StartNewJobInstrumentation initialise le tracing, la métrique et le logging pour un stage
 func StartNewJobInstrumentation(
 	ctx context.Context,
 	stageName string,
@@ -32,16 +31,13 @@ func StartNewJobInstrumentation(
 
 	start := time.Now()
 
-	// Crée un span de trace
 	ctx, span := (*tracer).Start(ctx, stageName+".execute",
 		trace.WithAttributes(attribute.String("stage", stageName)),
 	)
 
-	// Crée des instruments génériques
 	runCounter, _ := meter.Int64Counter("job_total_calls")
 	durationHist, _ := meter.Float64Histogram("job_duration_seconds")
 
-	// Log de début
 	logger.Info("🚀 Stage démarré", zap.String("stage", stageName))
 
 	return &JobInstrumentation{
@@ -55,7 +51,6 @@ func StartNewJobInstrumentation(
 	}
 }
 
-// End termine proprement le span et enregistre les métriques
 func (ji *JobInstrumentation) End(err error) {
 	elapsed := time.Since(ji.StartTime)
 
@@ -67,7 +62,6 @@ func (ji *JobInstrumentation) End(err error) {
 		ji.Span.SetStatus(codes.Ok, "OK")
 	}
 
-	// Ajout des métriques génériques
 	attrs := []attribute.KeyValue{
 		attribute.String("stage_name", ji.StageName),
 		attribute.String("status", status),
@@ -75,14 +69,12 @@ func (ji *JobInstrumentation) End(err error) {
 	ji.RunCounter.Add(ji.Ctx, 1, metric.WithAttributes(attrs...))
 	ji.DurationHist.Record(ji.Ctx, elapsed.Seconds(), metric.WithAttributes(attrs...))
 
-	// Ajout des attributs dans la trace
 	ji.Span.SetAttributes(
 		attribute.String("stage_name", ji.StageName),
 		attribute.String("status", status),
 		attribute.Float64("duration_sec", elapsed.Seconds()),
 	)
 
-	// Log final
 	if err != nil {
 		ji.Logger.Error("❌ Stage échoué",
 			zap.String("stage", ji.StageName),

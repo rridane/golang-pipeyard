@@ -17,7 +17,6 @@ func (t *TerraformInjector) Inject(stageName string) *tfexec.Terraform {
 		return nil
 	}
 
-	// On fournit un Terraform prêt à utiliser
 	tf, err := tfexec.NewTerraform(t.BaseDir, tfPath)
 	if err != nil {
 		fmt.Printf("⚠️ Impossible de créer Terraform: %v\n", err)

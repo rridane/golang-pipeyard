@@ -48,8 +48,6 @@ func (e *executor) generateExec(stage Stage, stageName string) func(ctx context.
 	}
 }
 
-// callExecute invokes Execute and reads its error return. A stage that fails
-// must fail the process: that is the whole contract of a CI runner.
 func callExecute(method reflect.Value, args []reflect.Value, stageName string) error {
 
 	results := method.Call(args)
@@ -77,9 +75,8 @@ func callExecute(method reflect.Value, args []reflect.Value, stageName string) e
 	return failure
 }
 
-// checkStage reports a stage whose Execute cannot be dispatched. It runs at
-// registration time, so a malformed pipeline surfaces at startup instead of
-// as a silently successful CI job.
+// checkStage runs at registration: a pipeline that cannot report failure must
+// not start at all.
 func (e *executor) checkStage(stage Stage, stageName string) error {
 
 	signature, found := getExecuteMethodSignature(stage)
@@ -90,7 +87,7 @@ func (e *executor) checkStage(stage Stage, stageName string) error {
 				"Execute(ctx context.Context, args ru.ParsedArgs, deps ...) error", stageName)
 	}
 
-	// Index 0 is the receiver, 1 the context, 2 the parsed arguments, 3+ the dependencies.
+	// 0 receiver, 1 context, 2 parsed args, 3+ dependencies
 	if signature.Type.NumIn() < 3 {
 		return fmt.Errorf(
 			"stage %q: Execute must take at least (ctx context.Context, args ru.ParsedArgs)", stageName)
