@@ -25,14 +25,23 @@ const serviceName = "pipeyard-ci"
 func main() {
 	loadEnv()
 
-	endpoint := otlpEndpoint()
+	endpoint, insecure := otlpTarget()
 
-	tracer := &otel.TracerInjector{ServiceName: serviceName, OtelExporterOtlpEndpoint: endpoint}
-	meter := &otel.MeterInjector{ServiceName: serviceName, OtelExporterOtlpEndpoint: endpoint}
+	tracer := &otel.TracerInjector{
+		ServiceName:              serviceName,
+		OtelExporterOtlpEndpoint: endpoint,
+		Insecure:                 insecure,
+	}
+	meter := &otel.MeterInjector{
+		ServiceName:              serviceName,
+		OtelExporterOtlpEndpoint: endpoint,
+		Insecure:                 insecure,
+	}
 	logger := &otel.TelemetryLoggerInjector{
 		ServiceName:              serviceName,
 		EnableOtelExport:         endpoint != "",
 		OtelExporterOtlpEndpoint: endpoint,
+		OtelInsecure:             insecure,
 	}
 
 	pipe := pi.NewPipeline(pi.PipelineConfig{
@@ -76,11 +85,17 @@ func loadEnv() {
 	}
 }
 
-// otlpEndpoint reads the standard variable, which is a URL, and hands back the
-// host:port the gRPC exporters expect.
-func otlpEndpoint() string {
-	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	endpoint = strings.TrimPrefix(endpoint, "http://")
-	endpoint = strings.TrimPrefix(endpoint, "https://")
-	return strings.TrimSuffix(endpoint, "/")
+// otlpTarget reads the standard variable, which is a URL, and hands back the
+// host:port the gRPC exporters take plus the transport the scheme asked for.
+// Reading the scheme here keeps the decision explicit instead of leaning on
+// the SDK's own environment precedence.
+func otlpTarget() (endpoint string, insecure bool) {
+	raw := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+
+	insecure = strings.HasPrefix(raw, "http://")
+
+	raw = strings.TrimPrefix(raw, "http://")
+	raw = strings.TrimPrefix(raw, "https://")
+
+	return strings.TrimSuffix(raw, "/"), insecure
 }
