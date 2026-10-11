@@ -647,7 +647,8 @@ not the one this commit may have broken. A broken change to `ci/` then fails on
 its own, instead of taking the verdict on the Go code down with it.
 
 A second job runs the published **image** instead of the binary, for a project
-that would rather install nothing. It is the only place a stage runs inside the
+that would rather install nothing. It follows the floating major tag, which is
+`0` until the 1.0.0 release. It is the only place a stage runs inside the
 container, so the only place that catches what breaks there and nowhere else.
 The image runs as uid 1001, which is what a runner owns the mounted workspace
 with, so no step needs root.

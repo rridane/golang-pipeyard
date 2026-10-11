@@ -60,8 +60,9 @@ jobs:
 
     # The image runs as uid 1001, which is what the runner owns the mounted
     # workspace with, so no step needs root.
+    # The floating major tag, which is 0 until the 1.0.0 release.
     container:
-      image: ghcr.io/rridane/pipeyard:1
+      image: ghcr.io/rridane/pipeyard:0
 
     steps:
       - uses: actions/checkout@v4
