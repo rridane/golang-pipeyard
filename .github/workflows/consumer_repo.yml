@@ -58,11 +58,20 @@ jobs:
     needs: binary
     runs-on: ubuntu-latest
 
-    # The image runs as uid 1001, which is what the runner owns the mounted
-    # workspace with, so no step needs root.
-    # The floating major tag, which is 0 until the 1.0.0 release.
+    # Read the package with the workflow's own token, so it can stay private:
+    # this image exists for this pipeline, not for anyone else to pull.
+    permissions:
+      contents: read
+      packages: read
+
+    # On the floating major tag, which is 0 until the 1.0.0 release. The image
+    # runs as uid 1001, which is what the runner owns the mounted workspace
+    # with, so no step needs root.
     container:
       image: ghcr.io/rridane/pipeyard:0
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
 
     steps:
       - uses: actions/checkout@v4
