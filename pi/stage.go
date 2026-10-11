@@ -4,9 +4,18 @@ import (
 	"github.com/rridane/golang-pipeyard/ru"
 )
 
+// Stage is one command of the pipeline.
+//
+// Every stage must also have an Execute method, which the interface
+// deliberately does not declare:
+//
+//	Execute(ctx context.Context, args ru.ParsedArgs, deps ...) error
+//
+// Leaving it out is what lets a stage ask for exactly the dependencies it
+// needs, each with its own type. The executor checks the signature at
+// registration, since the compiler cannot.
 type Stage interface {
 	Configure() *StageSpec
-	//Execute(ctx context.context, args parsedArgs, ...any) error is REQUIRED FOR ANY IMPLEMENTATION, WE DO NOT DECLARE IT FOR FLEXIBILITY
 }
 
 type StageSpec struct {

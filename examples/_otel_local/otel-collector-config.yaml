@@ -7,15 +7,15 @@ receivers:
         endpoint: 0.0.0.0:4313
 
 exporters:
-  # 🔹 Exporter pour debug local (remplace l'ancien "logging")
+  # Prints everything received, for local inspection.
   debug:
     verbosity: detailed
 
-  # 🔹 Export Prometheus (pour les métriques)
+  # Scraped by Prometheus.
   prometheus:
     endpoint: "0.0.0.0:9464"
 
-  # 🔹 Export vers Tempo (pour les traces)
+  # Traces go to Tempo.
   otlp/tempo:
     endpoint: "tempo:4317"
     tls:

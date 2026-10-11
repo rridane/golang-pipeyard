@@ -226,8 +226,7 @@ func (r *Release) CreateRelease() IRelease {
 	return r
 }
 
-// UploadAssets attaches files to the release. It used to fetch the release and
-// return without uploading anything.
+// UploadAssets attaches files to the release.
 func (r *Release) UploadAssets(assets []string) IRelease {
 	if r.err != nil {
 		return r

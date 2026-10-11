@@ -22,6 +22,5 @@ func (o *OrderByFilter) ToListTagOptions() gitlab.ListTagsOptions {
 
 }
 
-// Both filters satisfy IssueFilter and TagFilter, which is what makes them
-// common. The issue-side method used to be named ToGitlabIssueOptions, so it
-// matched neither interface and the filters could not be passed anywhere.
+// Both filters in this package satisfy IssueFilter and TagFilter, which is what
+// makes them common: they apply to an issue query and to a tag query alike.

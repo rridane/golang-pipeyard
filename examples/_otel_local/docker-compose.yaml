@@ -49,6 +49,7 @@ services:
     ports:
       - "3000:3000"
     environment:
+      # Local inspection stack only. Never point this at anything real.
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
     depends_on:

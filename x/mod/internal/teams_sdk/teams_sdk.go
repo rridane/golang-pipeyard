@@ -22,9 +22,9 @@ type TeamsNotificationButton struct {
 	Url   string
 }
 
-// SendNotification posts the card to the webhook. It used to call log.Fatal
-// and os.Exit, which turned an unreachable webhook into a failed pipeline:
-// whether a missed notification should fail a stage is the stage's call.
+// SendNotification posts the card to the webhook. Whether a missed
+// notification should fail a stage is the stage's call, so the error is
+// returned rather than acted on here.
 func (t *TeamsSDK) SendNotification(notification TeamsNotification) error {
 
 	card := messagecard.NewMessageCard()
