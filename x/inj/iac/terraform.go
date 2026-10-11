@@ -1,4 +1,4 @@
-package inj
+package iac
 
 import (
 	"fmt"

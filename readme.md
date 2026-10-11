@@ -82,9 +82,9 @@ func main() {
 		Version:          "1.4.0",
 		ShortDescription: "CI pipeline for the payments team",
 		Injectors: []any{
-			&inj.TelemetryLoggerInjector{ServiceName: "corp-ci"},
-			&inj.ShellExecutorInjector{Timeout: 10 * time.Minute},
-			&inj.ContainerBuilderInjector{},
+			&otel.TelemetryLoggerInjector{ServiceName: "corp-ci"},
+			&sys.ShellExecutorInjector{Timeout: 10 * time.Minute},
+			&container.ContainerBuilderInjector{},
 		},
 	})
 
@@ -200,23 +200,27 @@ An injector is a struct with one method, `Inject(stageName string) *T`. The
 executor matches each `Execute` parameter against the return type of every
 registered injector.
 
-| Injector | Provides |
-|---|---|
-| `TelemetryLoggerInjector` | `*zap.Logger`, optional OTLP export |
-| `TracerInjector` | `trace.Tracer` |
-| `MeterInjector` | `metric.Meter` |
-| `ShellExecutorInjector` | `*mod.ShellExecutor` |
-| `ContainerBuilderInjector` | `*mod.ContainerBuilder` |
-| `FileSystemProcessorInjector` | `*mod.FileSystemProcessor` |
-| `AssetFinderInjector` | `*mod.AssetFinder` |
-| `MailerInjector` | `*mod.MailSender` |
-| `K8sInjector` | `*kubernetes.Clientset` |
-| `HelmInjector` | `*action.Configuration` |
-| `TerraformInjector` | `*tfexec.Terraform` |
-| `UnleashInjector` | `*unleash.Client` |
-| `GitHubReleaseInjector` | `*mod.GithubReleaseSDK` |
-| `GitlabReleaseInjector` | `*mod.GitlabRelease` |
-| `DaggerInjector` | `*dagger.Client` |
+| Package | Injector | Provides |
+|---|---|---|
+| `x/inj/otel` | `TelemetryLoggerInjector` | `*zap.Logger`, optional OTLP export |
+| | `TracerInjector` | `trace.Tracer` |
+| | `MeterInjector` | `metric.Meter` |
+| `x/inj/sys` | `ShellExecutorInjector` | `*mod.ShellExecutor` |
+| | `FileSystemProcessorInjector` | `*mod.FileSystemProcessor` |
+| | `AssetFinderInjector` | `*mod.AssetFinder` |
+| `x/inj/container` | `ContainerBuilderInjector` | `*mod.ContainerBuilder` |
+| `x/inj/k8s` | `K8sInjector` | `*kubernetes.Clientset` |
+| | `HelmInjector` | `*action.Configuration` |
+| `x/inj/iac` | `TerraformInjector` | `*tfexec.Terraform` |
+| `x/inj/forge` | `GitHubReleaseInjector` | `*mod.GithubReleaseSDK` |
+| | `GitlabReleaseInjector` | `*mod.GitlabRelease` |
+| `x/inj/notify` | `MailerInjector` | `*mod.MailSender` |
+| `x/inj/featureflag` | `UnleashInjector` | `*unleash.Client` |
+
+They are split by family on purpose: importing a package links everything it
+imports, so one package of injectors would make every pipeline pay for Helm and
+Kubernetes. A pipeline that builds and pushes an image weighs 26 MB; one that
+also deploys with Helm weighs 88 MB, because it genuinely uses Helm.
 
 Writing your own takes a struct and a method:
 
@@ -338,9 +342,10 @@ What is not there yet:
 - **No companion services.** Integration tests that need a database stay with
   the CI engine's `services:`. BuildKit solves a hermetic graph; there is no
   shared network to attach a Postgres to.
-- **One package of injectors.** Importing `x/inj` pulls in Kubernetes, Helm,
-  Terraform, Dagger and BuildKit, which is most of a 98 MB binary. Splitting it
-  into subpackages is the next structural change.
+- **`x/mod` is still one package.** Asking it for a `ShellExecutor` links
+  BuildKit, so every pipeline starts at 26 MB. That is the price of the
+  container builder, which is the point of the tool, but a pipeline that never
+  builds an image pays it too.
 - **The release SDKs swallow their errors.** `x/mod/internal/github_releases_sdk`
   and its GitLab counterpart print failures and carry on. Do not rely on them
   yet.

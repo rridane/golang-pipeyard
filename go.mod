@@ -5,7 +5,6 @@ go 1.24.0
 toolchain go1.24.8
 
 require (
-	dagger.io/dagger v0.19.2
 	github.com/Unleash/unleash-go-sdk/v5 v5.0.3
 	github.com/atc0005/go-teams-notify/v2 v2.13.0
 	github.com/docker/cli v28.4.0+incompatible
@@ -13,6 +12,7 @@ require (
 	github.com/google/go-github/v50 v50.2.0
 	github.com/hashicorp/terraform-exec v0.24.0
 	github.com/moby/buildkit v0.25.1
+	github.com/moby/docker-image-spec v1.3.1
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/spf13/cobra v1.10.1
 	github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f
@@ -40,10 +40,8 @@ replace github.com/rridane/golang-pipeyard => ./
 
 require (
 	dario.cat/mergo v1.0.1 // indirect
-	github.com/99designs/gqlgen v0.17.80 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20250102033503-faa5f7b0171c // indirect
 	github.com/BurntSushi/toml v1.5.0 // indirect
-	github.com/Khan/genqlient v0.8.1 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
@@ -51,7 +49,6 @@ require (
 	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/ProtonMail/go-crypto v1.1.6 // indirect
-	github.com/adrg/xdg v0.5.3 // indirect
 	github.com/agext/levenshtein v1.2.3 // indirect
 	github.com/apparentlymart/go-textseg/v15 v15.0.0 // indirect
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
@@ -124,10 +121,8 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-runewidth v0.0.9 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
-	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
-	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
@@ -151,7 +146,6 @@ require (
 	github.com/shibumi/go-pathspec v1.3.0 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/sosodev/duration v1.3.1 // indirect
 	github.com/spf13/cast v1.7.0 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
@@ -161,7 +155,6 @@ require (
 	github.com/tonistiigi/units v0.0.0-20180711220420-6950e57a87ea // indirect
 	github.com/tonistiigi/vt100 v0.0.0-20240514184818-90bafcd6abab // indirect
 	github.com/twmb/murmur3 v1.1.8 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.30 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	github.com/zclconf/go-cty v1.16.4 // indirect

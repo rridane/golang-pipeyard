@@ -1,4 +1,4 @@
-package inj
+package sys
 
 import (
 	"io/fs"

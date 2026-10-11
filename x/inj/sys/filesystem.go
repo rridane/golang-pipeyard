@@ -1,4 +1,4 @@
-package inj
+package sys
 
 import (
 	"github.com/rridane/golang-pipeyard/x/mod"

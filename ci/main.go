@@ -12,7 +12,9 @@ import (
 
 	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/ru"
-	"github.com/rridane/golang-pipeyard/x/inj"
+	"github.com/rridane/golang-pipeyard/x/inj/container"
+	"github.com/rridane/golang-pipeyard/x/inj/otel"
+	"github.com/rridane/golang-pipeyard/x/inj/sys"
 	"github.com/rridane/golang-pipeyard/x/mod"
 	"go.uber.org/zap"
 )
@@ -128,9 +130,9 @@ func main() {
 		LongDescription: "The pipeline that builds Pipeyard, written with Pipeyard.\n" +
 			"Each command is one stage; the CI engine calls them in order.",
 		Injectors: []any{
-			&inj.TelemetryLoggerInjector{ServiceName: "pipeyard-ci"},
-			&inj.ShellExecutorInjector{Timeout: 15 * time.Minute},
-			&inj.ContainerBuilderInjector{},
+			&otel.TelemetryLoggerInjector{ServiceName: "pipeyard-ci"},
+			&sys.ShellExecutorInjector{Timeout: 15 * time.Minute},
+			&container.ContainerBuilderInjector{},
 		},
 	})
 

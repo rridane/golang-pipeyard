@@ -1,4 +1,4 @@
-package inj
+package forge
 
 import (
 	"fmt"

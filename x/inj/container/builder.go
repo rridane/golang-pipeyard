@@ -1,4 +1,4 @@
-package inj
+package container
 
 import (
 	"encoding/base64"
