@@ -18,20 +18,17 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Check formatting
-        run: |
-          unformatted=$(gofmt -l pi ru x)
-          if [ -n "$unformatted" ]; then
-            echo "These files need gofmt:"
-            echo "$unformatted"
-            exit 1
-          fi
-
-      - name: Vet
-        run: go vet ./...
-
+      # Smoke check: the pipeline below is itself a Go program in this module,
+      # so it cannot run if the module does not build.
       - name: Build
         run: go build ./...
 
+      # From here on, Pipeyard runs its own pipeline.
+      - name: Format
+        run: go run ./ci fmt
+
+      - name: Vet
+        run: go run ./ci vet
+
       - name: Test
-        run: go test -race ./...
+        run: go run ./ci test --timeout 5m

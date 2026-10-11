@@ -307,6 +307,23 @@ before_script:
 
 ---
 
+## Pipeyard builds Pipeyard
+
+`ci/` is this repository's own pipeline, written with the framework. The GitHub
+workflow builds the module once as a smoke check, then calls the stages:
+
+```bash
+go run ./ci fmt            # gofmt, and names the files that need it
+go run ./ci vet
+go run ./ci test --timeout 5m
+go run ./ci lint           # golangci-lint in a container, needs BuildKit
+```
+
+It is the shortest honest example of what a pipeline looks like here, and it is
+the first thing to break when the framework does.
+
+---
+
 ## Where it stands
 
 What is covered, and verified against a real BuildKit daemon and registry:
