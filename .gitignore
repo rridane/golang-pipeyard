@@ -10,3 +10,6 @@ examples/_otel_local/data/
 
 # Local build output
 bin/
+
+# Session working notes, not for publication
+.context/
