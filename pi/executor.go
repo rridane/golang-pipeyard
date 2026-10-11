@@ -19,33 +19,60 @@ var (
 
 type executor struct {
 	Injectors []any
+	Observer  StageObserver
 }
 
 func (e *executor) generateExec(stage Stage, stageName string) func(ctx context.Context, args ru.ParsedArgs) error {
 
-	return func(ctx context.Context, args ru.ParsedArgs) error {
+	return func(ctx context.Context, args ru.ParsedArgs) (err error) {
 
-		signature, found := getExecuteMethodSignature(stage)
+		ctx, finished := e.observe(ctx, stageName, args)
 
-		if !found {
-			return fmt.Errorf("stage %q: no Execute method", stageName)
-		}
+		// Deferred, so a stage that panics is still recorded as a failure.
+		// Called explicitly it would leave the span open and the counter
+		// short, and a panicking deploy would not appear in the failure rate.
+		defer func() {
+			if recovered := recover(); recovered != nil {
+				finished(fmt.Errorf("stage %q panicked: %v", stageName, recovered))
+				panic(recovered)
+			}
+			finished(err)
+		}()
 
-		injectorMethods := e.validateInjectorAndGetMethods()
+		err = e.run(ctx, stage, stageName, args)
 
-		dependencies, err := dependency_injection.GetDependencies(signature, injectorMethods, stageName)
-
-		if err != nil {
-			return err
-		}
-
-		funcArgs := append([]reflect.Value{
-			reflect.ValueOf(ctx),
-			reflect.ValueOf(args),
-		}, dependencies...)
-
-		return callExecute(getExecuteMethod(stage), funcArgs, stageName)
+		return err
 	}
+}
+
+func (e *executor) observe(ctx context.Context, stageName string, args ru.ParsedArgs) (context.Context, StageFinished) {
+	if e.Observer == nil {
+		return ctx, func(error) {}
+	}
+	return e.Observer.StageStarted(ctx, stageName, args)
+}
+
+func (e *executor) run(ctx context.Context, stage Stage, stageName string, args ru.ParsedArgs) error {
+
+	signature, found := getExecuteMethodSignature(stage)
+
+	if !found {
+		return fmt.Errorf("stage %q: no Execute method", stageName)
+	}
+
+	dependencies, err := dependency_injection.GetDependencies(
+		signature, e.validateInjectorAndGetMethods(), stageName)
+
+	if err != nil {
+		return err
+	}
+
+	funcArgs := append([]reflect.Value{
+		reflect.ValueOf(ctx),
+		reflect.ValueOf(args),
+	}, dependencies...)
+
+	return callExecute(getExecuteMethod(stage), funcArgs, stageName)
 }
 
 func callExecute(method reflect.Value, args []reflect.Value, stageName string) error {

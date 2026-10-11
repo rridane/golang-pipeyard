@@ -4,45 +4,88 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/x/mod"
 	"go.uber.org/zap"
 )
 
 type GoLintLayer struct {
-	LintImage string
+	CBuilder *mod.ContainerBuilder
+	Logger   *zap.Logger
 }
 
-func (l *GoLintLayer) Name() string { return "Go Lint" }
+type GoLintLayerContext struct {
+	LintImage  string
+	ContextDir string
+	Packages   string
+}
 
-func (l *GoLintLayer) Run(ctx context.Context, logger *zap.Logger, cBuilder *mod.ContainerBuilder) error {
+func (l *GoLintLayer) Name() string { return "GoLint" }
 
-	logger.Info("🔹 preparing lint stage")
+func (l *GoLintLayer) Run(ctx context.Context, pipeyard pi.Ctx, c GoLintLayerContext) error {
 
-	if l.LintImage == "" {
-		return fmt.Errorf("lint image is mandatory")
+	if l.CBuilder == nil {
+		return fmt.Errorf("GoLintLayer: CBuilder is required")
+	}
+	if c.LintImage == "" {
+		return fmt.Errorf("GoLintLayer: LintImage is required")
 	}
 
-	logger.Info(fmt.Sprintf("🔹 pulling container %s", l.LintImage))
+	l.logger().Info("running golangci-lint", zap.String("image", c.LintImage))
 
-	recette := mod.Dockerfile{
-		Args: l,
-		Template: `
-			FROM {{.LintImage}} AS lint
-			WORKDIR /src
-			COPY . /src
-			RUN golangci-lint run ./...
-		`,
-	}
-
-	logger.Info("🔹 running golangci-lint")
-
-	if _, err := cBuilder.Build(ctx, mod.BuildRequest{
-		Dockerfile: recette,
-		ContextDir: ".",
+	if _, err := l.CBuilder.Build(ctx, mod.BuildRequest{
+		Dockerfile: c.recipe(),
+		ContextDir: c.contextDir(pipeyard),
 	}); err != nil {
 		return fmt.Errorf("golangci-lint: %w", err)
 	}
 
-	logger.Info("✅ GoLintLayer completed successfully")
+	l.logger().Info("linter found nothing")
 	return nil
 }
+
+// The Go caches are mounted so a second run neither downloads nor recompiles
+// the dependencies.
+func (c GoLintLayerContext) recipe() mod.Dockerfile {
+	return mod.Dockerfile{
+		Args: c,
+		Template: `
+			FROM {{.LintImage}} AS lint
+			WORKDIR /src
+			COPY . /src
+			RUN --mount=type=cache,target=/go/pkg/mod \
+			    --mount=type=cache,target=/root/.cache/go-build \
+			    golangci-lint run {{.Target}}
+		`,
+	}
+}
+
+func (c GoLintLayerContext) Target() string {
+	if c.Packages != "" {
+		return c.Packages
+	}
+	return "./..."
+}
+
+func (c GoLintLayerContext) contextDir(pipeyard pi.Ctx) string {
+	if c.ContextDir != "" && c.ContextDir != "./" {
+		return c.ContextDir
+	}
+	if pipeyard.CurrentDir != "" {
+		return pipeyard.CurrentDir
+	}
+	return "."
+}
+
+func (l *GoLintLayer) logger() *zap.Logger {
+	if l.Logger != nil {
+		return l.Logger
+	}
+	return zap.NewNop()
+}
+
+// Both layers honour the contract now.
+var (
+	_ Layer[GoLintLayerContext]       = (*GoLintLayer)(nil)
+	_ Layer[BuildAndPushLayerContext] = (*BuildAndPushLayer)(nil)
+)

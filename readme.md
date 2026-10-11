@@ -301,6 +301,45 @@ that uses it: a tracer per stage, a logger with the right field, a cache key.
 
 ---
 
+## Layers
+
+A layer is a reusable piece of a pipeline: a struct, a name, and a `Run` that
+takes a context value. Where an injector provides a *client*, a layer provides a
+*behaviour* — something several stages do the same way.
+
+```go
+type Layer[C any] interface {
+	Name() string
+	Run(ctx context.Context, pipeyard pi.Ctx, c C) error
+}
+```
+
+`C` is the layer's own context type, so each layer declares exactly what it
+needs and the compiler checks the call site:
+
+```go
+func (s *LintStage) Execute(ctx context.Context, args ru.ParsedArgs,
+	cb *mod.ContainerBuilder, log *zap.Logger) error {
+
+	layer := lay.GoLintLayer{CBuilder: cb, Logger: log}
+
+	return layer.Run(ctx, pi.Ctx{CurrentDir: "."}, lay.GoLintLayerContext{
+		LintImage: "golangci/golangci-lint:v1.62-alpine",
+	})
+}
+```
+
+Two layers ship today: `GoLintLayer` runs golangci-lint in a container with the
+Go caches mounted, and `BuildAndPushLayer` builds an image from a Dockerfile on
+disk and delivers it to a registry or a tarball.
+
+A layer is a plain struct, so it belongs in the repository that owns the
+pipeline, next to the stages that use it. That is where the sharing between
+projects actually happens: a stage is specific, a layer is the part worth
+publishing.
+
+---
+
 ## Shell commands
 
 ```go
@@ -343,19 +382,75 @@ it, because `terraform-exec` drives the real binary.
 
 ## Observability
 
-The three OTel signals are wired, each behind its own injector, each exporting
-over OTLP gRPC when an endpoint is configured and falling back to a no-op
-otherwise.
+Give the pipeline an observer and every stage is instrumented. No stage declares
+anything, and no stage can opt out — which is the point: an unrecorded
+deployment reads as a lower deployment count, not as an error.
 
-`x/lay/job_instrumentation.go` wraps a stage in a span, a counter and a
-histogram, and logs the trace ID so a line in the CI output can be matched to a
-trace.
+```go
+tracer := &otel.TracerInjector{ServiceName: "corp-ci", OtelExporterOtlpEndpoint: endpoint}
+meter  := &otel.MeterInjector{ServiceName: "corp-ci", OtelExporterOtlpEndpoint: endpoint}
+logger := &otel.TelemetryLoggerInjector{ServiceName: "corp-ci", EnableOtelExport: true,
+	OtelExporterOtlpEndpoint: endpoint}
 
-`examples/_otel_local/` holds a compose file with Tempo, Prometheus, Grafana
-and an OTel collector, for looking at it locally.
+pi.NewPipeline(pi.PipelineConfig{
+	Observer: &lay.StageObserver{
+		Tracer: tracer.Inject("corp-ci"),
+		Meter:  meter.Inject("corp-ci"),
+		Logger: logger.Inject("observer"),
+		Flags:  []string{"env"},
+		Shutdown: []func(context.Context){
+			tracer.Shutdown, meter.Shutdown, logger.Shutdown,
+		},
+	},
+	...
+})
+```
+
+Leave `Observer` nil and nothing is recorded. That is the on/off switch: one
+field, not a flag you could set without wiring an exporter behind it.
+
+`Shutdown` is not optional in a short-lived command. A batching exporter keeps
+what it collected in memory, and `Run` is the only place that knows the process
+is about to exit — `os.Exit` skips deferred calls. Without it the pipeline
+produces telemetry and throws it away.
+
+### What is recorded
+
+| | |
+|---|---|
+| span | `{stage}.execute`, with `stage`, `status`, `duration_sec`, `commit_sha`, `commit_time` |
+| counter | `stage_runs_total{stage, status}` |
+| histogram | `stage_duration_seconds{stage, status}` |
+| log | start and outcome, with the trace id when a tracer is wired |
+
+`Flags` adds the value of named stage flags to both the metrics and the span, so
+`deploy --env staging` and `deploy --env production` are separate series. Keep
+that list low-cardinality: a version or an image reference would create one
+metric series per release.
+
+The commit identity is deliberately on the span only, never on the metrics — a
+commit timestamp as a Prometheus label is one series per commit.
+
+A stage that panics is recorded as a failure before the panic propagates. An
+unrecorded crash would be the one failure the failure rate must not miss.
+
+### DORA metrics
+
+| | |
+|---|---|
+| **Deployment frequency** | `sum(rate(stage_runs_total{stage="deploy",status="success",flag_env="production"}[7d]))` |
+| **Change failure rate** | `stage_runs_total{stage="deploy",status="error"} / stage_runs_total{stage="deploy"}` — honestly this is the *job* failure rate. A deploy that exits zero and breaks production counts as a success |
+| **Lead time for changes** | from the traces: the span carries `commit_time`, so the delta to the end of a successful `deploy` span is the lead time. GitLab exposes `CI_COMMIT_TIMESTAMP`; on GitHub Actions set `PIPEYARD_COMMIT_TIME` yourself |
+| **Time to restore service** | not derivable — it needs incident data. The gap between a failed `deploy` and the next successful one is a proxy for pipeline recovery, not for service recovery |
+
+Two of the four come out of the box, the third once the commit timestamp is in
+the environment. The fourth needs something Pipeyard does not see.
+
+`examples/_otel_local/` holds a compose file with Tempo, Prometheus, Grafana and
+an OTel collector, for looking at all of it locally.
 
 If the CI engine propagates `TRACEPARENT`, the separate invocations of your
-binary end up in one distributed trace.
+binary end up in one distributed trace — build, test and deploy under one root.
 
 ---
 

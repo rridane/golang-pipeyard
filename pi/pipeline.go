@@ -2,6 +2,7 @@ package pi
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 	"os"
 
@@ -21,6 +22,9 @@ type PipelineConfig struct {
 	Version          string
 	Injectors        []any
 	Assets           fs.FS
+
+	// Observer instruments every stage. Leave it nil and nothing is recorded.
+	Observer StageObserver
 }
 
 // RegisterStage panics on a stage whose Execute cannot be dispatched. Execute
@@ -49,8 +53,24 @@ func (p *Pipeline) RegisterStage(stage Stage) *Pipeline {
 // Run turns a runtime error into a non-zero exit status. The runtime has
 // already reported it to the user.
 func (p *Pipeline) Run(ctx context.Context) {
-	if err := p.runtime.Process(ctx); err != nil {
+	err := p.runtime.Process(ctx)
+
+	// Before either exit: os.Exit skips deferred calls, and a pipeline that
+	// does not flush its observer records nothing.
+	p.flush(ctx)
+
+	if err != nil {
 		os.Exit(1)
+	}
+}
+
+func (p *Pipeline) flush(ctx context.Context) {
+	closer, ok := p.executor.Observer.(StageObserverCloser)
+	if !ok {
+		return
+	}
+	if err := closer.Close(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "warning: observer not flushed: %v\n", err)
 	}
 }
 
@@ -64,7 +84,7 @@ func NewPipeline(config PipelineConfig) *Pipeline {
 	}
 
 	r := runtimeFactory.NewRuntime()
-	e := executor{Injectors: config.Injectors}
+	e := executor{Injectors: config.Injectors, Observer: config.Observer}
 
 	pipe := &Pipeline{
 		runtime:   r,

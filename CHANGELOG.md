@@ -27,6 +27,13 @@ First version meant to be used by someone other than its author.
 - `ParsedArgs.Keys` returns a fourth slice, for duration flags.
 - `mod.ContainerSpec`, `mod.ContainerExportOptions` and the four
   `mod.ContainerModeExport*` constants are gone.
+- `lay.JobInstrumentation` removed, along with `StartNewJobInstrumentation`.
+  It was never called, it did not honour `Layer[C]`, and instrumentation a
+  stage has to remember is instrumentation a stage forgets. Use
+  `PipelineConfig.Observer`.
+- `GoLintLayer.Run` honours `Layer[C]`: it takes `(ctx, pi.Ctx,
+  GoLintLayerContext)` instead of `(ctx, *zap.Logger, *mod.ContainerBuilder)`.
+  Both shipped layers now honour the contract.
 
 ### Fixed
 
@@ -56,6 +63,17 @@ First version meant to be used by someone other than its author.
 
 ### Added
 
+- Automatic stage instrumentation. `PipelineConfig.Observer` wraps every stage
+  in a span, a counter and a duration sample, with no code in the stages and no
+  way for one to opt out. `lay.StageObserver` is the OpenTelemetry
+  implementation; `pi` declares the interface and gains no dependency.
+  Deployment frequency and the pipeline's change failure rate come out of it
+  directly, lead time for changes once the CI engine exposes the commit
+  timestamp.
+- `pi.Run` flushes the observer before exiting. A batching exporter in a
+  short-lived command kept everything in memory, so the previous
+  instrumentation produced telemetry and discarded it.
+- A stage that panics is recorded as a failure before the panic propagates.
 - `mod.Dockerfile{Template, Args}` — a build recipe, raw or rendered through
   `text/template`, composable by injecting one recipe into another.
 - `Artifact.ReadFile` reads a file out of a build without touching the host

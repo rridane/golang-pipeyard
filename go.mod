@@ -11,6 +11,7 @@ require (
 	github.com/go-mail/mail v2.3.1+incompatible
 	github.com/google/go-github/v50 v50.2.0
 	github.com/hashicorp/terraform-exec v0.24.0
+	github.com/joho/godotenv v1.5.1
 	github.com/moby/buildkit v0.25.1
 	github.com/moby/docker-image-spec v1.3.1
 	github.com/moby/patternmatcher v0.6.0
