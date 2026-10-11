@@ -5,15 +5,9 @@ import (
 	"reflect"
 )
 
-type DependencyInjector[T any] interface {
-	Inject(stageName string) *T
-}
-
 // return serviceA reflect value for a method Method(serviceA) if injector of ServiceA is active
 // Method ...params
 func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName string) ([]reflect.Value, error) {
-
-	//start := time.Now()
 
 	var arg []reflect.Value
 	var missingDeps []string
@@ -21,15 +15,13 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 
 	// 1: context.Context
 	// 2: *parsedArgs
-	// 3+: dépendances
+	// 3+: dependencies
 	for p := 3; p < numParams; p++ {
 
 		indexPParamType := m.Type.In(p)
 		found := false
 
 		for i := 0; i < len(injectMethods); i++ {
-
-			//start_method := time.Now()
 
 			injectorMethod := injectMethods[i]
 			returnType := injectorMethod.Type().Out(0)
@@ -40,11 +32,21 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 
 			injectResponse := injectorMethod.Call([]reflect.Value{reflect.ValueOf(stageName)})
 
-			if len(injectResponse) == 0 || injectResponse[0].IsNil() {
+			if len(injectResponse) == 0 {
 				continue
 			}
 
 			injectedService := injectResponse[0]
+
+			// An injector signals "not configured" by returning nil, which only a
+			// nilable kind can do. One that returns a value always provides its
+			// dependency, and asking IsNil of it would panic.
+			switch injectedService.Kind() {
+			case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+				if injectedService.IsNil() {
+					continue
+				}
+			}
 
 			if injectedService.Type().AssignableTo(indexPParamType) {
 				arg = append(arg, injectedService)
@@ -53,22 +55,19 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 				i--
 				break
 			}
-
-			//elapsed_method := time.Since(start_method)
-			//fmt.Printf("Traitement de %s: %s\n", injectorMethod, elapsed_method)
 		}
 
 		if !found {
 			missingDeps = append(missingDeps, indexPParamType.String())
 		}
 
-		//elapsed := time.Since(start)
-		//fmt.Printf("⏱️ Durée de fetch des dépendances: %s\n", elapsed)
-
 	}
 
 	if len(missingDeps) > 0 {
-		return nil, fmt.Errorf("dépendances manquantes: %v", missingDeps)
+		return nil, fmt.Errorf(
+			"stage %q: no injector provided %v; either it is not registered in "+
+				"PipelineConfig.Injectors, or its Inject returned nil because its "+
+				"configuration is incomplete", stageName, missingDeps)
 	}
 
 	return arg, nil
@@ -82,31 +81,26 @@ func ValidateDependencyInjector(inj any) (reflect.Value, error) {
 	method, ok := injType.MethodByName("Inject")
 
 	if !ok {
-		return reflect.Value{}, fmt.Errorf("%T n’a pas de méthode Inject", inj)
+		return reflect.Value{}, fmt.Errorf("%T has no Inject method", inj)
 	}
 
 	if method.Type.NumIn() != 2 {
-		return reflect.Value{}, fmt.Errorf("%T.Inject doit avoir exactement 1 paramètre (string)", inj)
+		return reflect.Value{}, fmt.Errorf("%T.Inject must take exactly one parameter (string)", inj)
 	}
 
 	paramType := method.Type.In(1)
 	if paramType.Kind() != reflect.String {
-		return reflect.Value{}, fmt.Errorf("%T.Inject doit prendre un string (actuel : %v)", inj, paramType)
+		return reflect.Value{}, fmt.Errorf("%T.Inject must take a string (got %v)", inj, paramType)
 	}
 
 	if method.Type.NumOut() != 1 {
-		return reflect.Value{}, fmt.Errorf("%T.Inject doit retourner exactement une valeur", inj)
+		return reflect.Value{}, fmt.Errorf("%T.Inject must return exactly one value", inj)
 	}
-
-	//outType := method.Type.Out(0)
-	//if outType.Kind() != reflect.Ptr {
-	//	return reflect.Value{}, fmt.Errorf("%T.Inject doit retourner un pointeur (actuel : %v)", inj, outType)
-	//}
 
 	injectMethod := injValue.MethodByName("Inject")
 
 	if !injectMethod.IsValid() {
-		return reflect.Value{}, fmt.Errorf("%T.Inject introuvable sur la valeur", inj)
+		return reflect.Value{}, fmt.Errorf("%T.Inject not found on the value", inj)
 	}
 
 	return injectMethod, nil
