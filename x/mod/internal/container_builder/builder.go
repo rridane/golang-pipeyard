@@ -16,6 +16,17 @@ const defaultEndpoint = "tcp://127.0.0.1:1234"
 type ContainerBuilder struct {
 	Endpoint string // empty → $BUILDKIT_HOST, then tcp://127.0.0.1:1234
 	Logger   *zap.Logger
+
+	// Registries authenticates the registries this builder may push to, keyed
+	// by host: "ghcr.io", "docker.io". Empty and the machine's own docker
+	// config is read, which is what a laptop has after docker login. Set it
+	// and no credential is written anywhere.
+	Registries map[string]RegistryCredential
+}
+
+type RegistryCredential struct {
+	Username string
+	Password string
 }
 
 type BuildRequest struct {

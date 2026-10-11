@@ -19,6 +19,7 @@ import (
 
 type ContainerBuilder = container_builder.ContainerBuilder
 type BuildRequest = container_builder.BuildRequest
+type RegistryCredential = container_builder.RegistryCredential
 type Artifact = container_builder.Artifact
 type Dockerfile = container_builder.Dockerfile
 

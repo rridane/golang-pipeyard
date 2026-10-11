@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 
 	"github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/cli/cli/config/types"
 	"github.com/moby/buildkit/client"
 	"github.com/moby/buildkit/client/llb"
 	"github.com/moby/buildkit/exporter/containerimage/exptypes"
@@ -27,8 +29,9 @@ import (
 const frontendName = "pipeyard"
 
 type daemon struct {
-	client *client.Client
-	logger *zap.Logger
+	client     *client.Client
+	logger     *zap.Logger
+	registries map[string]RegistryCredential
 }
 
 func (c *ContainerBuilder) connect(ctx context.Context) (*daemon, error) {
@@ -39,7 +42,7 @@ func (c *ContainerBuilder) connect(ctx context.Context) (*daemon, error) {
 		return nil, fmt.Errorf("connect to BuildKit at %s: %w", address, err)
 	}
 
-	return &daemon{client: conn, logger: c.logger()}, nil
+	return &daemon{client: conn, logger: c.logger(), registries: c.Registries}, nil
 }
 
 func (d *daemon) Close() {
@@ -49,7 +52,7 @@ func (d *daemon) Close() {
 }
 
 func (d *daemon) Solve(ctx context.Context, req BuildRequest, target exportTarget) (*dockerspec.DockerOCIImage, error) {
-	options, err := req.solveOptions(target)
+	options, err := d.solveOptions(req, target)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +82,7 @@ func (d *daemon) Solve(ctx context.Context, req BuildRequest, target exportTarge
 }
 
 func (d *daemon) ReadFile(ctx context.Context, req BuildRequest, path string) ([]byte, error) {
-	options, err := req.solveOptions(exportTarget{})
+	options, err := d.solveOptions(req, exportTarget{})
 	if err != nil {
 		return nil, err
 	}
@@ -171,15 +174,15 @@ func (r BuildRequest) deliver(ref gateway.Reference, image *dockerspec.DockerOCI
 	return result, nil
 }
 
-func (r BuildRequest) solveOptions(target exportTarget) (client.SolveOpt, error) {
-	buildCtx, err := r.buildContext()
+func (d *daemon) solveOptions(req BuildRequest, target exportTarget) (client.SolveOpt, error) {
+	buildCtx, err := req.buildContext()
 	if err != nil {
 		return client.SolveOpt{}, err
 	}
 
 	return client.SolveOpt{
 		LocalMounts: map[string]fsutil.FS{dockerui.DefaultLocalNameContext: buildCtx},
-		Session:     r.attachables(),
+		Session:     d.attachables(req),
 		Exports:     target.entries,
 	}, nil
 }
@@ -229,21 +232,54 @@ func (r BuildRequest) dockerignore(dir string) ([]string, error) {
 	return patterns, nil
 }
 
-// attachables grants the daemon access to the machine's secrets and registry
-// credentials, for the duration of the build only.
-func (r BuildRequest) attachables() []session.Attachable {
+// attachables grants the build the registry credentials this builder was
+// configured with and the secrets this request declares, for the duration of
+// the build only.
+func (d *daemon) attachables(req BuildRequest) []session.Attachable {
 	auth := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
-		ConfigFile: config.LoadDefaultConfigFile(os.Stderr),
+		ConfigFile: d.dockerConfig(),
 	})
 
 	attachables := []session.Attachable{auth}
 
-	if len(r.Secrets) > 0 {
-		values := make(map[string][]byte, len(r.Secrets))
-		for id, valeur := range r.Secrets {
-			values[id] = []byte(valeur)
+	if len(req.Secrets) > 0 {
+		values := make(map[string][]byte, len(req.Secrets))
+		for id, secret := range req.Secrets {
+			values[id] = []byte(secret)
 		}
 		attachables = append(attachables, secretsprovider.FromMap(values))
 	}
 	return attachables
+}
+
+// dockerConfig carries the credentials the builder was given, or the machine's
+// own when it was given none. It is held in memory: nothing is written to
+// ~/.docker/config.json, and nothing already there is overwritten.
+func (d *daemon) dockerConfig() *configfile.ConfigFile {
+	if len(d.registries) == 0 {
+		return config.LoadDefaultConfigFile(os.Stderr)
+	}
+
+	auths := make(map[string]types.AuthConfig, len(d.registries))
+
+	for host, credential := range d.registries {
+		key := registryKey(host)
+		auths[key] = types.AuthConfig{
+			ServerAddress: key,
+			Username:      credential.Username,
+			Password:      credential.Password,
+		}
+	}
+
+	return &configfile.ConfigFile{AuthConfigs: auths}
+}
+
+// registryKey is the name a credential is stored under. Docker Hub is the one
+// registry whose key is not its host, and an empty host means it.
+func registryKey(host string) string {
+	switch host {
+	case "", "docker.io", "index.docker.io", "registry-1.docker.io":
+		return "https://index.docker.io/v1/"
+	}
+	return host
 }
