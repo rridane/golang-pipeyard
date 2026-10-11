@@ -8,14 +8,12 @@ import (
 
 // HelmInjector falls back to the in-cluster configuration when KubeConfigPath is empty.
 type HelmInjector struct {
-	KubeConfigPath string // Chemin vers le fichier kubeconfig (facultatif)
+	KubeConfigPath string // optional; the ambient kubeconfig when empty
 	Namespace      string // Namespace cible (ex: "default", "prod")
 	StorageDriver  string // "secret" ou "configmap" (Helm backend)
 }
 
 func (h *HelmInjector) Inject(stageName string) *action.Configuration {
-	fmt.Printf("🔧 Injection de Helm Configuration pour le stage %s\n", stageName)
-
 	if h.Namespace == "" {
 		h.Namespace = "default"
 	}

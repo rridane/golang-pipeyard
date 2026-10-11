@@ -24,7 +24,7 @@ type IRelease interface {
 	Err() error
 }
 
-// Release struct principale
+// Release is a release in the middle of being made.
 type Release struct {
 	TagName     string
 	ReleaseName string
@@ -71,10 +71,10 @@ type Config struct {
 	Owner      string
 	Repo       string
 	Enterprise bool
-	BaseURL    string // Pour GitHub Enterprise
+	BaseURL    string // for GitHub Enterprise
 }
 
-// ReleaseFactory pour la construction
+// ReleaseFactory collects the release settings before it is prepared.
 type ReleaseFactory struct {
 	tagName         string
 	releaseName     string
