@@ -99,3 +99,38 @@ func TestCheckStage_AcceptsAWellFormedStage(t *testing.T) {
 		t.Fatalf("a well-formed stage must be accepted, got: %v", err)
 	}
 }
+
+type concreteError struct{ message string }
+
+func (e *concreteError) Error() string { return e.message }
+
+type concreteErrorStage struct{ failure *concreteError }
+
+func (s *concreteErrorStage) Configure() *StageSpec { return NewStageSpec("concrete") }
+
+func (s *concreteErrorStage) Execute(ctx context.Context, args ru.ParsedArgs) *concreteError {
+	return s.failure
+}
+
+// checkStage accepts a concrete error type, so running one has to work too.
+// It used to register and then fail with "Execute must return error".
+func TestExec_ConcreteErrorTypeRunsAsRegistered(t *testing.T) {
+	e := executor{}
+
+	if err := e.checkStage(&concreteErrorStage{}, "concrete"); err != nil {
+		t.Fatalf("registration must accept a concrete error type: %v", err)
+	}
+
+	// A nil *concreteError is no failure, which converting it to the error
+	// interface would get wrong.
+	if err := e.generateExec(&concreteErrorStage{}, "concrete")(context.Background(), ru.ParsedArgs{}); err != nil {
+		t.Fatalf("a nil concrete error must be no error, got %v", err)
+	}
+
+	stage := &concreteErrorStage{failure: &concreteError{message: "boom"}}
+
+	err := e.generateExec(stage, "concrete")(context.Background(), ru.ParsedArgs{})
+	if err == nil || err.Error() != "boom" {
+		t.Fatalf("the stage's own error must reach the caller, got %v", err)
+	}
+}

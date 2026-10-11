@@ -21,6 +21,10 @@ type Dockerfile struct {
 	Args     any
 }
 
+// Render panics on a template it cannot parse or execute. That is not
+// negligence: String calls it, so it has no way to return an error, and a
+// recipe is written by hand and read at build time — a broken one is a
+// programming mistake, like a malformed stage.
 func (d Dockerfile) Render() string {
 	body := d.body()
 

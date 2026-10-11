@@ -59,7 +59,6 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 				arg = append(arg, injectedService)
 				found = true
 				injectMethods = append(injectMethods[:i], injectMethods[i+1:]...)
-				i--
 				break
 			}
 		}

@@ -85,12 +85,15 @@ func callExecute(method reflect.Value, args []reflect.Value, stageName string) e
 
 	last := results[len(results)-1]
 
-	if last.Kind() != reflect.Interface {
-		return fmt.Errorf("stage %q: Execute must return error, got %s", stageName, last.Type())
-	}
-
-	if last.IsNil() {
-		return nil
+	// A concrete error type is accepted here because checkStage accepts it at
+	// registration: a stage that registers has to be able to run. Reading
+	// IsNil first also turns a nil *MyError into no error, which converting to
+	// the interface would not.
+	switch last.Kind() {
+	case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+		if last.IsNil() {
+			return nil
+		}
 	}
 
 	failure, ok := last.Interface().(error)
