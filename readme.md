@@ -480,7 +480,7 @@ produces telemetry and throws it away.
 | span | `{stage}.execute`, with `stage`, `status`, `duration_sec`, and the change: `commit_sha`, `commit_time`, `commit_title` |
 | counter | `stage_runs_total{stage, status, branch}` |
 | histogram | `stage_duration_seconds{stage, status, branch}` |
-| log | one line per run names the stage and the change it runs against, the rest stay terse; every line carries `stage`, the project, the branch and the commit as attributes, and the outcome carries the trace id |
+| log | every line is prefixed `[stage branch@sha]`, so it locates itself in a viewer where several runs interleave; the opening line adds the commit title, and the outcome carries the trace id |
 
 `Flags` adds the value of named stage flags to both the metrics and the span, so
 `deploy --env staging` and `deploy --env production` are separate series. Keep

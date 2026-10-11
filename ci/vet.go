@@ -22,6 +22,6 @@ func (s *VetStage) Execute(ctx context.Context, args ru.ParsedArgs, sh *mod.Shel
 		return err
 	}
 
-	log.Info("vet found nothing")
+	log.Info("found nothing")
 	return nil
 }

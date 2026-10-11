@@ -56,7 +56,7 @@ func (o *StageObserver) StageStarted(ctx context.Context, stage string, args ru.
 	ctx, span := o.tracer().Start(ctx, stage+".execute", trace.WithAttributes(spanAttrs...))
 	calls, duration := o.instruments()
 
-	o.logger().Info(o.opening(stage), zap.String("stage", stage))
+	o.logger().Info(o.opening(), zap.String("stage", stage))
 
 	return ctx, func(err error) {
 		elapsed := time.Since(started)
@@ -124,25 +124,13 @@ func (o *StageObserver) commitAttributes() []attribute.KeyValue {
 	return attrs
 }
 
-// opening names the stage and the change it is running against, so one line
-// per run is readable on its own — in a log viewer with its fields collapsed,
-// in the runner's console, in a grep.
-func (o *StageObserver) opening(stage string) string {
-	run := pi.ReadIdentity()
-
-	message := stage + " started"
-
-	if run.Branch != "" {
-		message += " on " + run.Branch
+// opening carries the commit title, which is the one piece of the run too long
+// to repeat on every line. The stage and the commit are on every line already.
+func (o *StageObserver) opening() string {
+	if title := pi.ReadIdentity().CommitTitle; title != "" {
+		return "started " + strconv.Quote(title)
 	}
-	if sha := run.ShortSHA(); sha != "" {
-		message += " @" + sha
-	}
-	if run.CommitTitle != "" {
-		message += " " + strconv.Quote(run.CommitTitle)
-	}
-
-	return message
+	return "started"
 }
 
 func (o *StageObserver) closeSpan(span trace.Span, err error, elapsed time.Duration, attrs []attribute.KeyValue) {
@@ -170,10 +158,10 @@ func (o *StageObserver) report(stage string, err error, elapsed time.Duration, s
 	}
 
 	if err != nil {
-		o.logger().Error(stage+" failed", append(fields, zap.Error(err))...)
+		o.logger().Error("failed", append(fields, zap.Error(err))...)
 		return
 	}
-	o.logger().Info(stage+" finished", fields...)
+	o.logger().Info("finished", fields...)
 }
 
 func (o *StageObserver) status(err error) string {

@@ -6,8 +6,10 @@ import (
 	"math"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/rridane/golang-pipeyard/pi"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
@@ -128,12 +130,29 @@ func (l *TelemetryLoggerInjector) Shutdown(ctx context.Context) {
 type otelZapCore struct {
 	provider *sdklog.LoggerProvider
 	fields   []zapcore.Field
+	run      string
 }
 
 func NewOtelZapCore(provider *sdklog.LoggerProvider) zapcore.Core {
 	// Set globally so global.Logger() sees it.
 	global.SetLoggerProvider(provider)
-	return &otelZapCore{provider: provider}
+	return &otelZapCore{provider: provider, run: runScope()}
+}
+
+// runScope is the branch and commit as one short token, read once.
+func runScope() string {
+	run := pi.ReadIdentity()
+
+	switch {
+	case run.Branch != "" && run.CommitSHA != "":
+		return run.Branch + "@" + run.ShortSHA()
+	case run.Branch != "":
+		return run.Branch
+	case run.CommitSHA != "":
+		return "@" + run.ShortSHA()
+	}
+
+	return ""
 }
 
 func (o *otelZapCore) Enabled(l zapcore.Level) bool { return true }
@@ -146,6 +165,7 @@ func (o *otelZapCore) With(fields []zapcore.Field) zapcore.Core {
 	return &otelZapCore{
 		provider: o.provider,
 		fields:   append(slices.Clip(o.fields), fields...),
+		run:      o.run,
 	}
 }
 
@@ -163,7 +183,7 @@ func (o *otelZapCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	record.SetObservedTimestamp(time.Now())
 	record.SetSeverity(severityOf(entry.Level))
 	record.SetSeverityText(entry.Level.String())
-	record.SetBody(log.StringValue(entry.Message))
+	record.SetBody(log.StringValue(o.body(entry, fields)))
 
 	for _, f := range slices.Concat(o.fields, fields) {
 		if value, ok := attributeValue(f); ok {
@@ -176,6 +196,36 @@ func (o *otelZapCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 }
 
 func (o *otelZapCore) Sync() error { return nil }
+
+// body makes a line locatable on its own. A log viewer shows the body and
+// collapses the attributes, and lines from several runs and several jobs
+// interleave there, so a line that only says "finished" says nothing.
+//
+// The project is left out: it is an indexed label, so the stream is already
+// scoped to it. The commit title is left out too — it is prose of variable
+// length, and repeating it would crowd out the message.
+func (o *otelZapCore) body(entry zapcore.Entry, fields []zapcore.Field) string {
+	stage := stageOf(o.fields)
+	if stage == "" {
+		stage = stageOf(fields)
+	}
+
+	scope := strings.TrimSpace(stage + " " + o.run)
+	if scope == "" {
+		return entry.Message
+	}
+
+	return "[" + scope + "] " + entry.Message
+}
+
+func stageOf(fields []zapcore.Field) string {
+	for _, field := range fields {
+		if field.Key == "stage" && field.Type == zapcore.StringType {
+			return field.String
+		}
+	}
+	return ""
+}
 
 // attributeValue keeps a field's type. Zap packs a bool, an integer, a float
 // and a duration into Field.Integer and leaves Field.String empty, so reading
