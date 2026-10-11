@@ -478,10 +478,10 @@ produces telemetry and throws it away.
 
 | | |
 |---|---|
-| span | `{stage}.execute`, with `stage`, `status`, `duration_sec`, `commit_sha`, `commit_time` |
-| counter | `stage_runs_total{stage, status}` |
-| histogram | `stage_duration_seconds{stage, status}` |
-| log | every line carries `stage`, the project, the branch and the commit; start and outcome also carry the trace id |
+| span | `{stage}.execute`, with `stage`, `status`, `duration_sec`, and the change: `commit_sha`, `commit_time`, `commit_title` |
+| counter | `stage_runs_total{stage, status, branch}` |
+| histogram | `stage_duration_seconds{stage, status, branch}` |
+| log | one line per run names the stage and the change it runs against, the rest stay terse; every line carries `stage`, the project, the branch and the commit as attributes, and the outcome carries the trace id |
 
 `Flags` adds the value of named stage flags to both the metrics and the span, so
 `deploy --env staging` and `deploy --env production` are separate series. Keep
@@ -493,15 +493,16 @@ unrecorded crash would be the one failure the failure rate must not miss.
 
 ### What identifies a run
 
-A record says which project, which branch and which commit it came from, and
-every log line, span and metric carries it. Pipeyard reads four variables:
+A record says which project, which branch and which change it came from.
+Pipeyard reads five variables:
 
 | | |
 |---|---|
 | `PIPEYARD_PROJECT` | the project, as `service.namespace` — a label Loki indexes |
-| `PIPEYARD_BRANCH` | the branch |
+| `PIPEYARD_BRANCH` | the branch, a label on the metrics so a query can read one branch |
 | `PIPEYARD_COMMIT_SHA` | the change under test |
 | `PIPEYARD_COMMIT_TIME` | what lead time for changes is measured from |
+| `PIPEYARD_COMMIT_TITLE` | what makes a log line say what it was testing; only the first line is kept |
 
 These are Pipeyard's own names. A CI engine calls these things its own way, and
 mapping its variables onto them belongs in that engine's configuration, not in
@@ -523,9 +524,13 @@ jobs:
 On GitLab the same four come from `CI_PROJECT_PATH`, `CI_COMMIT_REF_NAME`,
 `CI_COMMIT_SHA` and `CI_COMMIT_TIMESTAMP`.
 
-The commit is deliberately absent from the metrics: a resource attribute
-becomes a label in a Prometheus store, and a commit as a label is one series per
-commit.
+The commit is deliberately absent from the metrics, and from the resource of
+the traces. A resource attribute becomes a label in a Prometheus store, and a
+commit as a label is one series per commit — including through a `spanmetrics`
+connector, which derives metrics from traces and copies their resource along.
+So the change rides the span, which is where lead time is computed from anyway,
+and the branch is attached to the series directly rather than to the resource,
+because a resource attribute cannot be filtered on.
 
 ### What the collector must do
 

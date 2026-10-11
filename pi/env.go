@@ -13,8 +13,11 @@ const (
 	ProjectEnvVar = "PIPEYARD_PROJECT"
 	BranchEnvVar  = "PIPEYARD_BRANCH"
 
-	// CommitSHAEnvVar and CommitTimeEnvVar identify the change under test.
-	// The commit time is what lead time for changes is measured from.
-	CommitSHAEnvVar  = "PIPEYARD_COMMIT_SHA"
-	CommitTimeEnvVar = "PIPEYARD_COMMIT_TIME"
+	// CommitSHAEnvVar, CommitTimeEnvVar and CommitTitleEnvVar identify the
+	// change under test. The commit time is what lead time for changes is
+	// measured from; the title is what makes a log line say what it was
+	// testing.
+	CommitSHAEnvVar   = "PIPEYARD_COMMIT_SHA"
+	CommitTimeEnvVar  = "PIPEYARD_COMMIT_TIME"
+	CommitTitleEnvVar = "PIPEYARD_COMMIT_TITLE"
 )

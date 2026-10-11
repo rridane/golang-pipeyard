@@ -47,7 +47,7 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exporter),
-		sdktrace.WithResource(runResource(ctx, t.ServiceName, true)),
+		sdktrace.WithResource(runResource(ctx, t.ServiceName, false)),
 	)
 	otel.SetTracerProvider(tp)
 	return tp

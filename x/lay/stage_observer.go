@@ -1,6 +1,7 @@
 package lay
 
 import (
+	"strconv"
 	"time"
 
 	"context"
@@ -55,7 +56,7 @@ func (o *StageObserver) StageStarted(ctx context.Context, stage string, args ru.
 	ctx, span := o.tracer().Start(ctx, stage+".execute", trace.WithAttributes(spanAttrs...))
 	calls, duration := o.instruments()
 
-	o.logger().Info("stage started", zap.String("stage", stage))
+	o.logger().Info(o.opening(stage), zap.String("stage", stage))
 
 	return ctx, func(err error) {
 		elapsed := time.Since(started)
@@ -74,6 +75,13 @@ func (o *StageObserver) StageStarted(ctx context.Context, stage string, args ru.
 func (o *StageObserver) seriesAttributes(stage string, args ru.ParsedArgs) []attribute.KeyValue {
 
 	attrs := []attribute.KeyValue{attribute.String("stage", stage)}
+
+	// On the series, not only on the resource: a Prometheus store keeps
+	// resource attributes out of the labels, so a branch on the resource
+	// cannot be filtered on.
+	if branch := pi.ReadIdentity().Branch; branch != "" {
+		attrs = append(attrs, attribute.String("branch", branch))
+	}
 
 	for _, flag := range o.Flags {
 		if value, ok := args.StringOk(flag); ok {
@@ -110,7 +118,31 @@ func (o *StageObserver) commitAttributes() []attribute.KeyValue {
 	if run.CommitTime != "" {
 		attrs = append(attrs, attribute.String("commit_time", run.CommitTime))
 	}
+	if run.CommitTitle != "" {
+		attrs = append(attrs, attribute.String("commit_title", run.CommitTitle))
+	}
 	return attrs
+}
+
+// opening names the stage and the change it is running against, so one line
+// per run is readable on its own — in a log viewer with its fields collapsed,
+// in the runner's console, in a grep.
+func (o *StageObserver) opening(stage string) string {
+	run := pi.ReadIdentity()
+
+	message := stage + " started"
+
+	if run.Branch != "" {
+		message += " on " + run.Branch
+	}
+	if sha := run.ShortSHA(); sha != "" {
+		message += " @" + sha
+	}
+	if run.CommitTitle != "" {
+		message += " " + strconv.Quote(run.CommitTitle)
+	}
+
+	return message
 }
 
 func (o *StageObserver) closeSpan(span trace.Span, err error, elapsed time.Duration, attrs []attribute.KeyValue) {
@@ -138,10 +170,10 @@ func (o *StageObserver) report(stage string, err error, elapsed time.Duration, s
 	}
 
 	if err != nil {
-		o.logger().Error("stage failed", append(fields, zap.Error(err))...)
+		o.logger().Error(stage+" failed", append(fields, zap.Error(err))...)
 		return
 	}
-	o.logger().Info("stage finished", fields...)
+	o.logger().Info(stage+" finished", fields...)
 }
 
 func (o *StageObserver) status(err error) string {

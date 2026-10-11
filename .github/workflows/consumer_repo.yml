@@ -24,6 +24,9 @@ env:
   PIPEYARD_COMMIT_SHA: ${{ github.sha }}
   # Absent on a pull request, where no deployment is measured from it.
   PIPEYARD_COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
+  # Read as a value, never interpolated into a shell, and only its first line
+  # is kept.
+  PIPEYARD_COMMIT_TITLE: ${{ github.event.head_commit.message }}
 
   # Read by ci/main.go, except HEADERS and COMPRESSION which the OpenTelemetry
   # SDK reads itself. Absent, the exporters fall back to noop and the pipeline
