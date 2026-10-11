@@ -16,16 +16,9 @@ import (
 // ContainerBuilder
 
 type ContainerBuilder = container_builder.ContainerBuilder
-type ContainerSpec = container_builder.ContainerSpec
-
-type ContainerExportOptions = container_builder.ExportOptions
-
-const (
-	ContainerModeExportPush   container_builder.ExportMode = container_builder.ExportPush
-	ContainerModeExportDocker container_builder.ExportMode = container_builder.ExportDocker
-	ContainerModeExportOCI    container_builder.ExportMode = container_builder.ExportOCI
-	ContainerModeExportLocal  container_builder.ExportMode = container_builder.ExportLocal
-)
+type BuildRequest = container_builder.BuildRequest
+type Artifact = container_builder.Artifact
+type Dockerfile = container_builder.Dockerfile
 
 // FileSystem
 

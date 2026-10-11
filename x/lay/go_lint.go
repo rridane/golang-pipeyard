@@ -3,6 +3,7 @@ package lay
 import (
 	"context"
 	"fmt"
+
 	"github.com/rridane/golang-pipeyard/x/mod"
 	"go.uber.org/zap"
 )
@@ -15,25 +16,33 @@ func (l *GoLintLayer) Name() string { return "Go Lint" }
 
 func (l *GoLintLayer) Run(ctx context.Context, logger *zap.Logger, cBuilder *mod.ContainerBuilder) error {
 
-	logger.Info("🔹 Préparation du stage de lint")
+	logger.Info("🔹 preparing lint stage")
 
 	if l.LintImage == "" {
 		return fmt.Errorf("lint image is mandatory")
 	}
 
-	logger.Info(fmt.Sprintf("🔹 Pulling container %s", l.LintImage))
+	logger.Info(fmt.Sprintf("🔹 pulling container %s", l.LintImage))
 
-	container := cBuilder.InitContainer(mod.ContainerSpec{
-		Image:      l.LintImage,
-		Env:        map[string]string{"FOO": "bar"},
-		WorkDir:    "/src",
-		EntryPoint: "sh",
-		Logger:     logger,
-	})
+	recette := mod.Dockerfile{
+		Args: l,
+		Template: `
+			FROM {{.LintImage}} AS lint
+			WORKDIR /src
+			COPY . /src
+			RUN golangci-lint run ./...
+		`,
+	}
 
-	logger.Info("🔹 Execute golangci-lint")
-	container.ExecShell("mkdir src").CopyFromHost("./", "./src").ExecShell("cd src && golangci-lint run ./...").Apply()
+	logger.Info("🔹 running golangci-lint")
 
-	logger.Info("✅ GoLintLayer layer terminé avec succès")
+	if _, err := cBuilder.Build(ctx, mod.BuildRequest{
+		Dockerfile: recette,
+		ContextDir: ".",
+	}); err != nil {
+		return fmt.Errorf("golangci-lint: %w", err)
+	}
+
+	logger.Info("✅ GoLintLayer completed successfully")
 	return nil
 }

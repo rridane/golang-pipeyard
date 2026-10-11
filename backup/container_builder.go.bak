@@ -28,8 +28,8 @@ type ContainerBuilder struct {
 }
 
 type ContainerSpec struct {
-	Image string
-	//Mounts  map[string]string // logicalID -> containerPath
+	Image   string
+	Mounts  map[string]string // logicalID -> containerPath
 	Env     map[string]string
 	WorkDir string
 	state   llb.State
@@ -57,12 +57,9 @@ type ExportOptions struct {
 }
 
 func normalizeDockerHub(ref string) string {
-	// Si pas de '/', docker hub implicit: library/<name>
 	if !strings.Contains(ref, "/") {
 		return "docker.io/library/" + ref
 	}
-	// Si ça contient déjà un registry explicite ou un path, laisse tel quel
-	// (optionnel: si ref commence par "library/..." tu peux préfixer docker.io/)
 	if strings.HasPrefix(ref, "library/") {
 		return "docker.io/" + ref
 	}
@@ -85,7 +82,7 @@ func envSliceToMap(env []string) map[string]string {
 	return m
 }
 
-func (c *ContainerBuilder) InitContainer(specs ContainerSpec) *ContainerBuilder {
+func (c *ContainerBuilder) FromSpecs(specs ContainerSpec) *ContainerBuilder {
 
 	c.specs = specs
 
@@ -549,20 +546,20 @@ func (c *ContainerBuilder) Export(ctx context.Context, opts ExportOptions) error
 	return nil
 }
 
-//////////
-
-func (c *ContainerBuilder) InContainer(container string) *ContainerBuilder {
-	return c
-}
-
-func (c *ContainerBuilder) WithEnv(envs map[string]string) *ContainerBuilder {
-	return c
-}
-
-func (c *ContainerBuilder) WithWorkDir() *ContainerBuilder {
-	return c
-}
-
-func (c *ContainerBuilder) Exec(cmd string) *ContainerBuilder {
-	return c
-}
+////////////
+//
+//func (c *ContainerBuilder) FromSpecs(container string) *ContainerBuilder {
+//	return c
+//}
+//
+//func (c *ContainerBuilder) WithEnv(envs map[string]string) *ContainerBuilder {
+//	return c
+//}
+//
+//func (c *ContainerBuilder) WithWorkDir() *ContainerBuilder {
+//	return c
+//}
+//
+//func (c *ContainerBuilder) Exec(cmd string) *ContainerBuilder {
+//	return c
+//}

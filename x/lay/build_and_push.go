@@ -4,11 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+
 	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/x/mod"
 	"go.uber.org/zap"
-	"os"
-	"path/filepath"
 )
 
 type BuildAndPushLayer struct {
@@ -22,6 +22,7 @@ type BuildAndPushLayerContext struct {
 	SrcDockerfile    string
 	ImageName        string
 	Push             bool
+	Insecure         bool
 	ExportToLocalTar bool
 	LocalTarRef      string
 	LocalTarPath     string
@@ -40,86 +41,51 @@ func (b *BuildAndPushLayer) Run(ctx context.Context, pipeYardCtx pi.Ctx, c Build
 	if c.ContextDir == "./" || c.ContextDir == "" {
 		c.ContextDir = pipeYardCtx.CurrentDir
 	}
-	if c.WorkDir == "./" || c.WorkDir == "" {
-		c.WorkDir = pipeYardCtx.CurrentDir
-	}
 
-	b.Logger.Info("preparing docker build context",
-		zap.String("contextDir", c.ContextDir),
-		zap.String("workDir", c.WorkDir),
-	)
-
-	pipeyardDir := filepath.Join(c.ContextDir, ".pipeyard")
-
-	if err := os.MkdirAll(pipeyardDir, 0o755); err != nil {
-		return err
-	}
-
-	dstDockerfile := filepath.Join(
-		pipeyardDir,
-		fmt.Sprintf("Dockerfile.pipeyard.%d", os.Getpid()),
-	)
-
-	fp := mod.FileSystemProcessor{}
-
-	if err := fp.CopyFile(c.SrcDockerfile, dstDockerfile); err != nil {
-		return err
-	}
-
-	defer func() {
-		_ = os.Remove(dstDockerfile)
-		_ = os.Remove(pipeyardDir)
-	}()
-
-	containerSpecs := mod.ContainerSpec{
-		WorkDir:        c.WorkDir,
-		Logger:         b.Logger,
-		DockerfilePath: dstDockerfile,
-		ContextDir:     c.ContextDir,
+	recette, err := os.ReadFile(c.SrcDockerfile)
+	if err != nil {
+		return fmt.Errorf("read dockerfile %s: %w", c.SrcDockerfile, err)
 	}
 
 	b.Logger.Info("building image",
 		zap.String("image", c.ImageName),
+		zap.String("contextDir", c.ContextDir),
+		zap.String("dockerfile", c.SrcDockerfile),
 	)
 
+	artefact, err := b.CBuilder.Build(ctx, mod.BuildRequest{
+		Dockerfile: mod.Dockerfile{Template: string(recette)},
+		ContextDir: c.ContextDir,
+	})
+	if err != nil {
+		return err
+	}
+
 	if c.Push {
-
-		err := b.CBuilder.InitContainer(containerSpecs).Apply().Push(ctx, c.ImageName, true)
-
-		if err != nil {
+		if err := b.push(ctx, artefact, c); err != nil {
 			return err
 		}
-
-		b.Logger.Info("Image successfully pushed",
-			zap.String("image", c.ImageName),
-		)
-
+		b.Logger.Info("Image successfully pushed", zap.String("image", c.ImageName))
 	}
 
 	if c.ExportToLocalTar {
-
-		o := mod.ContainerExportOptions{
-			Mode:       mod.ContainerModeExportDocker,
-			ImageRef:   c.LocalTarRef,
-			OutputPath: c.LocalTarPath,
-			Insecure:   true,
-		}
-
-		err := b.CBuilder.InitContainer(containerSpecs).Export(ctx, o)
-
-		if err != nil {
+		if err := artefact.SaveTar(ctx, c.LocalTarRef, c.LocalTarPath); err != nil {
 			return err
 		}
-
-		b.Logger.Info("Image successfully exported to local",
-			zap.String("image", c.ImageName),
-		)
-
+		b.Logger.Info("Image successfully exported to local", zap.String("image", c.ImageName))
 	}
 
 	b.Logger.Info("Build and push completed")
 
 	return nil
+}
+
+// push publishes the image, over plain HTTP when the registry has no TLS.
+func (b *BuildAndPushLayer) push(ctx context.Context, artefact *mod.Artifact, c BuildAndPushLayerContext) error {
+	if c.Insecure {
+		return artefact.PushInsecure(ctx, c.ImageName)
+	}
+	return artefact.Push(ctx, c.ImageName)
 }
 
 func (c BuildAndPushLayerContext) Validate() error {
