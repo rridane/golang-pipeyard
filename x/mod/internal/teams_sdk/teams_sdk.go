@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"github.com/atc0005/go-teams-notify/v2"
 	"github.com/atc0005/go-teams-notify/v2/messagecard"
-	"log"
-	"os"
 )
 
 type TeamsSDK struct {
@@ -24,48 +22,45 @@ type TeamsNotificationButton struct {
 	Url   string
 }
 
-func (t *TeamsSDK) SendNotification(notification TeamsNotification) {
+// SendNotification posts the card to the webhook. It used to call log.Fatal
+// and os.Exit, which turned an unreachable webhook into a failed pipeline:
+// whether a missed notification should fail a stage is the stage's call.
+func (t *TeamsSDK) SendNotification(notification TeamsNotification) error {
 
-	fmt.Println("Sending teams notification ...")
+	card := messagecard.NewMessageCard()
 
-	mstClient := goteamsnotify.NewTeamsClient()
+	card.Title = notification.Title
+	card.Text = notification.Text
+	card.Summary = notification.Summary
+	card.ThemeColor = "#DF813D"
 
-	msgCard := messagecard.NewMessageCard()
-
-	msgCard.Title = notification.Title
-	msgCard.Text = notification.Text
-	msgCard.Summary = notification.Summary
-
-	msgCard.ThemeColor = "#DF813D"
-
-	for _, b := range notification.NotificationButtons {
-
-		ac, err := messagecard.NewPotentialAction(
-			messagecard.PotentialActionOpenURIType,
-			b.Title,
-		)
-
+	for _, button := range notification.NotificationButtons {
+		action, err := t.openURIAction(button)
 		if err != nil {
-			log.Fatal("error encountered when creating new action:", err)
+			return err
 		}
-
-		ac.PotentialActionOpenURI.Targets =
-			[]messagecard.PotentialActionOpenURITarget{
-				{
-					OS:  "default",
-					URI: b.Url,
-				},
-			}
-
-		if err := msgCard.AddPotentialAction(ac); err != nil {
-			log.Fatal("error encountered when adding action to message card:", err)
+		if err := card.AddPotentialAction(action); err != nil {
+			return fmt.Errorf("add action %q to the card: %w", button.Title, err)
 		}
-
 	}
 
-	if err := mstClient.Send(t.WebHook, msgCard); err != nil {
-		log.Printf("failed to send message: %v", err)
-		os.Exit(1)
+	if err := goteamsnotify.NewTeamsClient().Send(t.WebHook, card); err != nil {
+		return fmt.Errorf("send the Teams notification: %w", err)
 	}
 
+	return nil
+}
+
+func (t *TeamsSDK) openURIAction(button TeamsNotificationButton) (*messagecard.PotentialAction, error) {
+
+	action, err := messagecard.NewPotentialAction(messagecard.PotentialActionOpenURIType, button.Title)
+	if err != nil {
+		return nil, fmt.Errorf("create action %q: %w", button.Title, err)
+	}
+
+	action.PotentialActionOpenURI.Targets = []messagecard.PotentialActionOpenURITarget{
+		{OS: "default", URI: button.Url},
+	}
+
+	return action, nil
 }

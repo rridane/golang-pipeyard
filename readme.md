@@ -145,7 +145,7 @@ other project runs that image:
 ```yaml
 jobs:
   build:
-    container: ghcr.io/corp/ci:1
+    container: docker.io/corp/ci:1
     steps:
       - uses: actions/checkout@v4
       - run: corp-ci test --timeout 5m
@@ -270,7 +270,9 @@ registered injector.
 | `x/inj/iac` | `TerraformInjector` | `*tfexec.Terraform` |
 | `x/inj/forge` | `GitHubReleaseInjector` | `*mod.GithubReleaseSDK` |
 | | `GitlabReleaseInjector` | `*mod.GitlabRelease` |
+| | `GitlabApiInjector` | `*mod.GitlabApi` — issues, tags and releases of a project |
 | `x/inj/notify` | `MailerInjector` | `*mod.MailSender` |
+| | `TeamsInjector` | `*mod.TeamsSDK` |
 | `x/inj/featureflag` | `UnleashInjector` | `*unleash.Client` |
 
 They are split by family on purpose: importing a package links everything it
@@ -299,6 +301,17 @@ Add it to `Injectors`, and any stage can ask for a `*vault.Client`.
 
 The `stageName` argument is there so a dependency can be named after the stage
 that uses it: a tracer per stage, a logger with the right field, a cache key.
+
+One injector is built in: a stage that declares `pi.Ctx` receives the pipeline's
+working directory and its mount directory, the latter from `$PIPEYARD_MOUNT_DIR`
+with `./mounts` as the default.
+
+```go
+func (s *DeployStage) Execute(ctx context.Context, args ru.ParsedArgs, pyctx pi.Ctx) error {
+	manifests := filepath.Join(pyctx.MountDir, "k8s")
+	...
+}
+```
 
 ---
 
@@ -561,7 +574,8 @@ pipeline*.
 
 The `release` stage builds the distribution image with Pipeyard's own container
 builder, extracts the binary, and pushes two tags: the exact version and its
-major, so a consumer can pin `0.1.0` or follow `0`.
+major, so a consumer can pin `0.1.0` or follow `0`. Pipeyard publishes its own
+to `rridane/pipeyard`.
 
 ```bash
 bin/pipeyard-ci release --version 0.1.0 --push
@@ -591,9 +605,13 @@ What is not there yet:
 
 - **No published image yet.** The release stage and the workflow that calls it
   exist and have been run against a local registry, but no tag has been pushed,
-  so `ghcr.io/rridane/pipeyard-ci` is still empty.
-- **No git injector.** Deriving a version from tags, generating a changelog, or
-  finding which modules of a monorepo changed has to go through `sh.Output` —
+  so `rridane/pipeyard` is still empty.
+- **The release SDKs swallow their errors.** `github_releases_sdk` and its
+  GitLab counterpart return themselves for chaining, print failures and carry
+  on, and `gitlab_release_sdk` still calls `log.Fatal` on a validation error.
+  Do not rely on them yet.
+- **No git injector.** Deriving a version from tags, or finding which modules of
+  a monorepo changed, has to go through `sh.Output` —
   which also costs the binary its hermeticity, since it then needs git on the
   runner.
 - **No companion services.** Integration tests that need a database stay with
@@ -603,9 +621,6 @@ What is not there yet:
   BuildKit, so every pipeline starts at 26 MB. That is the price of the
   container builder, which is the point of the tool, but a pipeline that never
   builds an image pays it too.
-- **The release SDKs swallow their errors.** `x/mod/internal/github_releases_sdk`
-  and its GitLab counterpart print failures and carry on. Do not rely on them
-  yet.
 
 ---
 

@@ -6,7 +6,7 @@ type OrderByFilter struct {
 	OrderBy string
 }
 
-func (o *OrderByFilter) ToGitlabIssueOptions() gitlab.ListProjectIssuesOptions {
+func (o *OrderByFilter) ToListProjectIssuesOptions() gitlab.ListProjectIssuesOptions {
 
 	return gitlab.ListProjectIssuesOptions{
 		OrderBy: &o.OrderBy,
@@ -21,3 +21,7 @@ func (o *OrderByFilter) ToListTagOptions() gitlab.ListTagsOptions {
 	}
 
 }
+
+// Both filters satisfy IssueFilter and TagFilter, which is what makes them
+// common. The issue-side method used to be named ToGitlabIssueOptions, so it
+// matched neither interface and the filters could not be passed anywhere.

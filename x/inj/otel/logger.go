@@ -15,9 +15,6 @@ import (
 	"time"
 )
 
-// TelemetryLoggerInjector is a logger dependency injection with specific configuration
-//
-// Provides an implementation which can log as json and export to opentelemetry
 type TelemetryLoggerInjector struct {
 	// service name displayed in otel logs and json logs
 	ServiceName string
@@ -49,11 +46,11 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 
 	if l.EnableOtelExport {
 		if l.OtelExporterOtlpEndpoint == "" {
-			fmt.Println("⚠️  OTEL_EXPORTER_OTLP_ENDPOINT non défini, export des logs désactivé")
+			fmt.Println("log export disabled: OtelExporterOtlpEndpoint is empty")
 		} else {
 			lp, err := l.initOtelLogProvider(stageName, l.OtelExporterOtlpEndpoint)
 			if err != nil {
-				fmt.Printf("⚠️  Impossible d'initialiser OTLP Log Exporter: %v\n", err)
+				fmt.Printf("OTLP log exporter unavailable: %v\n", err)
 			} else {
 				cores = append(cores, NewOtelZapCore(lp))
 			}
@@ -62,7 +59,7 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 
 	logger := zap.New(zapcore.NewTee(cores...))
 
-	fmt.Printf("📘 Niveau de log configuré: %s\n", level)
+	fmt.Printf("log level: %s\n", level)
 
 	return logger
 }
@@ -83,7 +80,7 @@ func (l *TelemetryLoggerInjector) initOtelLogProvider(stageName, endpoint string
 	)
 
 	if err != nil {
-		return nil, fmt.Errorf("échec création exporter OTLP: %w", err)
+		return nil, fmt.Errorf("create the OTLP log exporter: %w", err)
 	}
 
 	res, _ := resource.New(ctx,
@@ -105,7 +102,7 @@ func (l *TelemetryLoggerInjector) Shutdown(ctx context.Context) {
 	globalProvider := global.GetLoggerProvider()
 	if provider, ok := globalProvider.(*sdklog.LoggerProvider); ok {
 		if err := provider.Shutdown(ctx); err != nil {
-			fmt.Printf("⚠️ Erreur lors de l’arrêt du LoggerProvider: %v\n", err)
+			fmt.Printf("logger provider not shut down cleanly: %v\n", err)
 		}
 	}
 }

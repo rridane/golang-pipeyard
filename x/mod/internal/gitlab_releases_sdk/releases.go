@@ -232,7 +232,11 @@ func (r *Release) CommunicateThroughTeams() *Release {
 		NotificationButtons: []teams_sdk.TeamsNotificationButton{b1, b2},
 	}
 
-	t.SendNotification(notification)
+	// CommunicateThroughTeams returns *Release for chaining, so it has nowhere
+	// to put this error. The chain swallowing its failures is a known gap.
+	if err := t.SendNotification(notification); err != nil {
+		fmt.Printf("teams notification not sent: %v\n", err)
+	}
 
 	return r
 

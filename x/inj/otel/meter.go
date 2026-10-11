@@ -31,7 +31,7 @@ func (m *MeterInjector) Inject(stageName string) metric.Meter {
 func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 	endpoint := m.OtelExporterOtlpEndpoint
 	if endpoint == "" {
-		fmt.Println("⚠️  OTEL_EXPORTER_OTLP_ENDPOINT non défini, métriques désactivées")
+		fmt.Println("metrics disabled: OtelExporterOtlpEndpoint is empty")
 		return noop.NewMeterProvider()
 	}
 
@@ -47,7 +47,7 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 		options...,
 	)
 	if err != nil {
-		fmt.Println("❌ Impossible de créer le metric exporter:", err)
+		fmt.Println("create the OTLP metric exporter:", err)
 		return noop.NewMeterProvider()
 	}
 
@@ -67,7 +67,7 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 func (m *MeterInjector) Shutdown(ctx context.Context) {
 	if provider, ok := m.provider.(*sdkmetric.MeterProvider); ok {
 		if err := provider.Shutdown(ctx); err != nil {
-			fmt.Printf("⚠️ Erreur lors de l’arrêt du MeterProvider: %v\n", err)
+			fmt.Printf("meter provider not shut down cleanly: %v\n", err)
 		}
 	}
 }

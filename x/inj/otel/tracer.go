@@ -31,7 +31,7 @@ func (t *TracerInjector) Inject(stageName string) trace.Tracer {
 func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 	endpoint := t.OtelExporterOtlpEndpoint
 	if endpoint == "" {
-		fmt.Println("⚠️  OTEL_EXPORTER_OTLP_ENDPOINT non défini, traces désactivées")
+		fmt.Println("tracing disabled: OtelExporterOtlpEndpoint is empty")
 		return noop.NewTracerProvider()
 	}
 
@@ -48,7 +48,7 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 	)
 
 	if err != nil {
-		fmt.Println("❌ Impossible de créer l’exporter OTLP:", err)
+		fmt.Println("create the OTLP trace exporter:", err)
 		return noop.NewTracerProvider()
 	}
 

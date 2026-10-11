@@ -24,7 +24,7 @@ func (k *K8sInjector) Inject(stageName string) *kubernetes.Clientset {
 
 	clientset, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		fmt.Printf("Impossible de créer le client k8s: %v\n", err)
+		fmt.Printf("Kubernetes client not created: %v\n", err)
 		return nil
 	}
 	return clientset

@@ -5,7 +5,6 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
-// GitlabReleaseInjector provides an explicitly configured GitLab ReleaseFactory.
 type GitlabReleaseInjector struct {
 	Token        string
 	ProjectId    string
@@ -18,7 +17,7 @@ func (g *GitlabReleaseInjector) Inject(stageName string) *mod.GitlabRelease {
 	fmt.Printf("🔧 Injection de GitlabReleaseFactory pour le stage %s\n", stageName)
 
 	if g.Token == "" {
-		fmt.Printf("❌ Configuration Gitlab incomplète pour %s (token manquant)\n", stageName)
+		fmt.Printf("GitLab not configured for %s: Token is required\n", stageName)
 		return nil
 	}
 

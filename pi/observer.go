@@ -16,10 +16,8 @@ type StageObserver interface {
 // StageFinished is called exactly once, with the stage's error or nil.
 type StageFinished func(error)
 
-// StageObserverCloser is implemented by an observer that buffers what it
-// records. Run flushes it before the process exits: a batching exporter in a
-// short-lived command drops everything otherwise, so an unflushed pipeline
-// produces telemetry and throws it away.
+// StageObserverCloser is flushed by Run before the process exits. A batching
+// exporter in a short-lived command drops everything otherwise.
 type StageObserverCloser interface {
 	Close(ctx context.Context) error
 }

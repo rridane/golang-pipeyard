@@ -13,13 +13,13 @@ type TerraformInjector struct {
 func (t *TerraformInjector) Inject(stageName string) *tfexec.Terraform {
 	tfPath, err := exec.LookPath("terraform")
 	if err != nil {
-		fmt.Printf("❌ Terraform non trouvé: %v\n", err)
+		fmt.Printf("terraform not found on PATH: %v\n", err)
 		return nil
 	}
 
 	tf, err := tfexec.NewTerraform(t.BaseDir, tfPath)
 	if err != nil {
-		fmt.Printf("⚠️ Impossible de créer Terraform: %v\n", err)
+		fmt.Printf("terraform not initialised: %v\n", err)
 		return nil
 	}
 

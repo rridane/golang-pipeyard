@@ -23,7 +23,7 @@ func (g *GitlabUtils) CreateTag(t Tag) Tag {
 	_, _, err = client.Tags.CreateTag(g.ProjectId, ro)
 
 	if err != nil {
-		fmt.Printf("❌ Erreur lors de la création du tag %s: %v\n", t.Name, err)
+		fmt.Printf("create the tag %s: %v\n", t.Name, err)
 	}
 
 	return t

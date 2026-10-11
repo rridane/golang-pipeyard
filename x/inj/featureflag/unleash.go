@@ -16,7 +16,7 @@ type UnleashInjector struct {
 
 func (u *UnleashInjector) Inject(stageName string) *unleash.Client {
 	if u.UnleashURL == "" || u.UnleashAPIToken == "" {
-		fmt.Printf("❌ UNLEASH_URL ou UNLEASH_API_TOKEN manquant pour %s\n", stageName)
+		fmt.Printf("Unleash not configured for %s: UNLEASH_URL and UNLEASH_API_TOKEN are both required\n", stageName)
 		return nil
 	}
 
@@ -34,7 +34,7 @@ func (u *UnleashInjector) Inject(stageName string) *unleash.Client {
 		unleash.WithListener(&unleash.DebugListener{}),
 	)
 	if err != nil {
-		fmt.Printf("⚠️ Impossible d’initialiser Unleash: %v\n", err)
+		fmt.Printf("Unleash not initialised: %v\n", err)
 		return nil
 	}
 

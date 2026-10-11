@@ -3,7 +3,6 @@ package pi
 import (
 	"context"
 	"fmt"
-	"io/fs"
 	"os"
 
 	"github.com/rridane/golang-pipeyard/ru"
@@ -21,7 +20,6 @@ type PipelineConfig struct {
 	LongDescription  string
 	Version          string
 	Injectors        []any
-	Assets           fs.FS
 
 	// Observer instruments every stage. Leave it nil and nothing is recorded.
 	Observer StageObserver
@@ -84,11 +82,16 @@ func NewPipeline(config PipelineConfig) *Pipeline {
 	}
 
 	r := runtimeFactory.NewRuntime()
-	e := executor{Injectors: config.Injectors, Observer: config.Observer}
+
+	// The pipeline context is injectable like anything else, so a stage that
+	// needs the mount or working directory just declares it.
+	injectors := append([]any{&ctxInjector{ctx: newCtx()}}, config.Injectors...)
+
+	e := executor{Injectors: injectors, Observer: config.Observer}
 
 	pipe := &Pipeline{
 		runtime:   r,
-		injectors: config.Injectors,
+		injectors: injectors,
 		executor:  e,
 	}
 

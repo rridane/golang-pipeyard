@@ -25,6 +25,9 @@ First version meant to be used by someone other than its author.
 - `StageSpec.AddFlag` takes `any` for its default value instead of `string`.
   An `int` or `bool` default used to be silently dropped to the zero value.
 - `ParsedArgs.Keys` returns a fourth slice, for duration flags.
+- `PipelineConfig.Assets` removed. It was declared and never read; the field
+  that works is `AssetFinderInjector.FS`.
+- `TeamsSDK.SendNotification` returns `error`.
 - `mod.ContainerSpec`, `mod.ContainerExportOptions` and the four
   `mod.ContainerModeExport*` constants are gone.
 - `lay.JobInstrumentation` removed, along with `StartNewJobInstrumentation`.
@@ -37,6 +40,13 @@ First version meant to be used by someone other than its author.
 
 ### Fixed
 
+- `TeamsSDK.SendNotification` returns an error instead of calling `log.Fatal`
+  and `os.Exit`. An unreachable webhook used to kill the process, so a
+  successful deploy followed by a failed notification produced a red job and
+  a rollback for nothing.
+- `OrderByFilter` and `PaginationFilter` satisfy `IssueFilter`. Their issue-side
+  method was named `ToGitlabIssueOptions`, so it matched neither interface and
+  the two filters could not be passed to anything.
 - A stage that returns an error now fails the command. The executor read
   `Execute`'s return value nowhere, so every pipeline exited zero whatever
   happened.
@@ -63,6 +73,16 @@ First version meant to be used by someone other than its author.
 
 ### Added
 
+- `GitlabApiInjector` and `TeamsInjector`. Both clients existed and neither was
+  reachable: no injector, and the types their signatures need were missing from
+  the facade. `mod.GitlabTag`, `GitlabIssue`, `GitlabLink`, `GitlabReleaseInfo`,
+  the two filter interfaces and the four concrete filters are exported now, as
+  are `mod.TeamsNotification` and `TeamsNotificationButton`.
+- `pi.Ctx` is injectable. A stage that declares it receives the working
+  directory and the mount directory, the latter from `$PIPEYARD_MOUNT_DIR`.
+  Nothing used to build one, so a caller had to write it by hand.
+- `list` prints the stage names, one per line. `AddListCommand` existed and was
+  never called.
 - Automatic stage instrumentation. `PipelineConfig.Observer` wraps every stage
   in a span, a counter and a duration sample, with no code in the stages and no
   way for one to opt out. `lay.StageObserver` is the OpenTelemetry

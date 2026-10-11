@@ -17,7 +17,7 @@ func (s *ReleaseStage) Configure() *pi.StageSpec {
 	spec := pi.NewStageSpec("release")
 	spec.SetDescription("Build the pipeline image and push it")
 	spec.AddFlag("version", ru.StringFlag, "semver version, without a leading v", "", true)
-	spec.AddFlag("image", ru.StringFlag, "image repository", "ghcr.io/rridane/pipeyard-ci", false)
+	spec.AddFlag("image", ru.StringFlag, "image repository", "rridane/pipeyard", false)
 	spec.AddFlag("push", ru.BoolFlag, "push to the registry", false, false)
 	spec.AddFlag("insecure", ru.BoolFlag, "registry without TLS", false, false)
 	return spec

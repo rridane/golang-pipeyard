@@ -152,7 +152,7 @@ func (e *executor) validateInjectorAndGetMethods() []reflect.Value {
 		inj := e.Injectors[i]
 		method, err := dependency_injection.ValidateDependencyInjector(inj)
 		if err != nil {
-			fmt.Println("❌", err)
+			fmt.Printf("injector skipped: %v\n", err)
 			continue
 		}
 

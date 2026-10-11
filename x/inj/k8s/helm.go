@@ -32,10 +32,10 @@ func (h *HelmInjector) Inject(stageName string) *action.Configuration {
 	if err := actionConfig.Init(configFlags, h.Namespace, h.StorageDriver, func(format string, v ...interface{}) {
 		fmt.Printf(format+"\n", v...)
 	}); err != nil {
-		fmt.Printf("⚠️ Impossible d'initialiser Helm: %v\n", err)
+		fmt.Printf("Helm not initialised: %v\n", err)
 		return nil
 	}
 
-	fmt.Printf("✅ Helm initialisé (namespace=%s, driver=%s)\n", h.Namespace, h.StorageDriver)
+	fmt.Printf("Helm ready (namespace=%s, driver=%s)\n", h.Namespace, h.StorageDriver)
 	return actionConfig
 }

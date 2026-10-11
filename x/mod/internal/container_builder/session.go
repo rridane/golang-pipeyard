@@ -184,8 +184,6 @@ func (r BuildRequest) solveOptions(target exportTarget) (client.SolveOpt, error)
 	}, nil
 }
 
-// attachables grants the daemon access to the machine's secrets and registry
-// credentials, for the duration of the build only.
 // buildContext reads .dockerignore from the context directory and filters the
 // tree accordingly. Without it every build ships .git and whatever else the
 // directory happens to hold, and fails outright on a file it cannot read.
@@ -231,6 +229,8 @@ func (r BuildRequest) dockerignore(dir string) ([]string, error) {
 	return patterns, nil
 }
 
+// attachables grants the daemon access to the machine's secrets and registry
+// credentials, for the duration of the build only.
 func (r BuildRequest) attachables() []session.Attachable {
 	auth := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
 		ConfigFile: config.LoadDefaultConfigFile(os.Stderr),

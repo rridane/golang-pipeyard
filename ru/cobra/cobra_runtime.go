@@ -32,7 +32,10 @@ func NewCobraRuntime(cfg CobraRuntimeConfig) *CobraRuntime {
 
 	root.CompletionOptions.DisableDefaultCmd = true
 
-	return &CobraRuntime{root: root}
+	runtime := &CobraRuntime{root: root}
+	runtime.AddListCommand()
+
+	return runtime
 }
 
 func (r *CobraRuntime) AddCommand(cmd ru.Command) {
@@ -217,6 +220,9 @@ func parseFlagsToParsedArgs(c *cobra.Command, specs []ru.Flag) (ru.ParsedArgs, e
 	return args, nil
 }
 
+// AddListCommand exposes the stage names one per line, which --help does not:
+// a script can read this, and for a binary shared across projects "what does
+// this one expose" is a real question.
 func (r *CobraRuntime) AddListCommand() {
 	c := &cobra.Command{
 		Use:   "list",

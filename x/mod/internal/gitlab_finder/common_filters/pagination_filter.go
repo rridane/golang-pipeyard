@@ -7,7 +7,7 @@ type PaginationFilter struct {
 	PerPage int
 }
 
-func (l *PaginationFilter) ToGitlabIssueOptions() gitlab.ListProjectIssuesOptions {
+func (l *PaginationFilter) ToListProjectIssuesOptions() gitlab.ListProjectIssuesOptions {
 
 	return gitlab.ListProjectIssuesOptions{
 		ListOptions: gitlab.ListOptions{

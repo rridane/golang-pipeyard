@@ -5,7 +5,6 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
-// GitHubReleaseInjector provides an explicitly configured GitHub ReleaseFactory.
 type GitHubReleaseInjector struct {
 	Token      string
 	Owner      string
@@ -18,7 +17,7 @@ func (g *GitHubReleaseInjector) Inject(stageName string) *mod.GithubReleaseSDK {
 	fmt.Printf("🔧 Injection de GitHubReleaseFactory pour le stage %s\n", stageName)
 
 	if g.Token == "" || g.Owner == "" || g.Repo == "" {
-		fmt.Printf("❌ Configuration GitHub incomplète pour %s (token, owner ou repo manquant)\n", stageName)
+		fmt.Printf("GitHub not configured for %s: Token, Owner and Repo are all required\n", stageName)
 		return nil
 	}
 

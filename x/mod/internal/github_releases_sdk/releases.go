@@ -133,7 +133,7 @@ func (r *Release) CreateTag() IRelease {
 		return r
 	}
 
-	fmt.Printf("🏷️  Creating tag %s on %s...\n", r.TagName, r.TargetCommitish)
+	fmt.Printf("creating tag %s on %s\n", r.TagName, r.TargetCommitish)
 
 	tag := &github.Tag{
 		Tag:     &r.TagName,
@@ -147,7 +147,7 @@ func (r *Release) CreateTag() IRelease {
 	ctx := context.Background()
 	_, _, err := r.client.Git.CreateTag(ctx, r.Config.Owner, r.Config.Repo, tag)
 	if err != nil {
-		fmt.Printf("⚠️  Failed to create tag (might already exist): %v\n", err)
+		fmt.Printf("tag not created, it may already exist: %v\n", err)
 		return r
 	}
 
@@ -161,10 +161,10 @@ func (r *Release) CreateTag() IRelease {
 
 	_, _, err = r.client.Git.CreateRef(ctx, r.Config.Owner, r.Config.Repo, ref)
 	if err != nil {
-		fmt.Printf("⚠️  Failed to create ref (might already exist): %v\n", err)
+		fmt.Printf("ref not created, it may already exist: %v\n", err)
 	}
 
-	fmt.Printf("✅ Tag %s created successfully\n", r.TagName)
+	fmt.Printf("tag %s created\n", r.TagName)
 	return r
 }
 
@@ -173,7 +173,7 @@ func (r *Release) CreateRelease() IRelease {
 		return r
 	}
 
-	fmt.Printf("🚀 Creating release %s...\n", r.ReleaseName)
+	fmt.Printf("creating release %s\n", r.ReleaseName)
 
 	release := &github.RepositoryRelease{
 		TagName:         &r.TagName,
@@ -187,28 +187,28 @@ func (r *Release) CreateRelease() IRelease {
 	ctx := context.Background()
 	createdRelease, _, err := r.client.Repositories.CreateRelease(ctx, r.Config.Owner, r.Config.Repo, release)
 	if err != nil {
-		fmt.Printf("❌ Failed to create release: %v\n", err)
+		fmt.Printf("create the release: %v\n", err)
 		return r
 	}
 
 	r.created = true
-	fmt.Printf("✅ Release created: %s\n", createdRelease.GetHTMLURL())
+	fmt.Printf("release created: %s\n", createdRelease.GetHTMLURL())
 	return r
 }
 
 func (r *Release) UploadAssets(assets []string) IRelease {
 	if !r.created {
-		fmt.Println("⚠️  Release must be created before uploading assets")
+		fmt.Println("the release must be created before uploading assets")
 		return r
 	}
 
-	fmt.Printf("📦 Uploading %d assets...\n", len(assets))
+	fmt.Printf("uploading %d assets\n", len(assets))
 
 	ctx := context.Background()
 
 	_, _, err := r.client.Repositories.GetReleaseByTag(ctx, r.Config.Owner, r.Config.Repo, r.TagName)
 	if err != nil {
-		fmt.Printf("❌ Failed to get release: %v\n", err)
+		fmt.Printf("read the release: %v\n", err)
 		return r
 	}
 
@@ -218,7 +218,7 @@ func (r *Release) UploadAssets(assets []string) IRelease {
 // Publish flips the release from draft to published.
 func (r *Release) Publish() IRelease {
 	if !r.created {
-		fmt.Println("⚠️  Release must be created before publishing")
+		fmt.Println("the release must be created before publishing")
 		return r
 	}
 
@@ -227,7 +227,7 @@ func (r *Release) Publish() IRelease {
 	ctx := context.Background()
 	release, _, err := r.client.Repositories.GetReleaseByTag(ctx, r.Config.Owner, r.Config.Repo, r.TagName)
 	if err != nil {
-		fmt.Printf("❌ Failed to get release: %v\n", err)
+		fmt.Printf("read the release: %v\n", err)
 		return r
 	}
 
@@ -238,11 +238,11 @@ func (r *Release) Publish() IRelease {
 
 	_, _, err = r.client.Repositories.EditRelease(ctx, r.Config.Owner, r.Config.Repo, release.GetID(), update)
 	if err != nil {
-		fmt.Printf("❌ Failed to publish release: %v\n", err)
+		fmt.Printf("publish the release: %v\n", err)
 		return r
 	}
 
-	fmt.Println("✅ Release published!")
+	fmt.Println("release published")
 	return r
 }
 
@@ -267,7 +267,7 @@ func (r *Release) WithChangelog() IRelease {
 			changelog += fmt.Sprintf("- %s\n", msg)
 		}
 		r.Body = changelog + "\n\n" + r.Body
-		fmt.Println("✅ Changelog generated")
+		fmt.Println("changelog generated")
 	}
 
 	return r

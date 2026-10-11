@@ -20,10 +20,6 @@ import (
 // StageObserver records every stage as one span, one counter sample and one
 // duration sample. Wire it into PipelineConfig.Observer and every stage is
 // instrumented without a line of code in the stages.
-//
-// What the recorded series give you, in DORA terms: deployment frequency and
-// the pipeline's change failure rate directly, and lead time for changes once
-// the CI engine exposes the commit timestamp.
 type StageObserver struct {
 	Tracer trace.Tracer
 	Meter  metric.Meter

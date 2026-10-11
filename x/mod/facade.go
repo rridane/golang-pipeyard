@@ -6,6 +6,8 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod/internal/filesystem"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/github_releases_sdk"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder"
+	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder/common_filters"
+	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder/issue_filters"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_releases_sdk"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/mailer"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/shell_executor"
@@ -28,6 +30,26 @@ type FileSystemProcessor = filesystem.FileSystemProcessor
 
 type GitlabApi = gitlab_finder.GitlabUtils
 
+type GitlabTag = gitlab_finder.Tag
+type GitlabIssue = gitlab_finder.Issue
+type GitlabLink = gitlab_finder.Link
+type GitlabReleaseInfo = gitlab_finder.Release
+
+type GitlabIssueFilter = gitlab_finder.IssueFilter
+type GitlabTagFilter = gitlab_finder.TagFilter
+
+type GitlabDateIssueFilter = issue_filters.DateIssueFilter
+type GitlabStatusIssueFilter = issue_filters.StatusIssueFilter
+type GitlabIssueStatus = issue_filters.Status
+
+const (
+	GitlabIssueClosed = issue_filters.Closed
+	GitlabIssueOpened = issue_filters.Opened
+)
+
+type GitlabPaginationFilter = common_filters.PaginationFilter
+type GitlabOrderByFilter = common_filters.OrderByFilter
+
 // Gitlab
 
 type GitlabReleaseSDK = gitlab_releases_sdk.GitlabReleaseSDK
@@ -41,6 +63,8 @@ type ShellExecutor = shell_executor.ShellExecutor
 // Teams
 
 type TeamsSDK = teams_sdk.TeamsSDK
+type TeamsNotification = teams_sdk.TeamsNotification
+type TeamsNotificationButton = teams_sdk.TeamsNotificationButton
 
 // Github
 
