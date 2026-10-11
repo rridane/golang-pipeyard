@@ -15,8 +15,9 @@ build:
 ```
 
 The pipeline itself moves to one repository, where it has a version, a
-changelog, tests and a rollback. That is the part that is hard to get any
-other way.
+changelog, tests and a rollback. Every stage is instrumented without declaring
+anything, so the pipeline reports its own DORA metrics. That is the part that is
+hard to get any other way.
 
 Status: **v0, API in motion.** It builds, it pushes images that run, and a
 failing stage fails the job. The rough edges are listed at the bottom.
@@ -436,15 +437,42 @@ unrecorded crash would be the one failure the failure rate must not miss.
 
 ### DORA metrics
 
+Which of the four you get depends on the stages you name, not on the framework.
+
+A pipeline with a single `deploy` stage gives you deployment frequency, and a
+change failure rate that is really the job's failure rate: a deploy that exits
+zero and breaks production counts as a success.
+
+Split that stage in three and the picture changes.
+
+```go
+pipe.RegisterStage(&DeployStage{}).    // helm upgrade --wait
+	RegisterStage(&VerifyStage{}).     // the smoke test, on its own
+	RegisterStage(&RollbackStage{})    // helm rollback
+```
+
+```yaml
+deploy:
+  script: corp-ci deploy --env production --version $CI_COMMIT_TAG
+verify:
+  script: corp-ci verify --env production
+rollback:
+  script: corp-ci rollback --env production
+  when: on_failure
+```
+
 | | |
 |---|---|
 | **Deployment frequency** | `sum(rate(stage_runs_total{stage="deploy",status="success",flag_env="production"}[7d]))` |
-| **Change failure rate** | `stage_runs_total{stage="deploy",status="error"} / stage_runs_total{stage="deploy"}` — honestly this is the *job* failure rate. A deploy that exits zero and breaks production counts as a success |
-| **Lead time for changes** | from the traces: the span carries `commit_time`, so the delta to the end of a successful `deploy` span is the lead time. GitLab exposes `CI_COMMIT_TIMESTAMP`; on GitHub Actions set `PIPEYARD_COMMIT_TIME` yourself |
-| **Time to restore service** | not derivable — it needs incident data. The gap between a failed `deploy` and the next successful one is a proxy for pipeline recovery, not for service recovery |
+| **Change failure rate** | `stage_runs_total{stage="verify",status="error"} / stage_runs_total{stage="verify"}` — a failed verify is a degradation in production, which is the DORA definition and not a proxy |
+| **Lead time for changes** | from the traces: `commit_time` on the span, against the end of a successful `deploy`. GitLab exposes `CI_COMMIT_TIMESTAMP`; on GitHub Actions set `PIPEYARD_COMMIT_TIME` yourself |
+| **Time to restore service** | the gap between a failed `verify` and the next successful `deploy` or `rollback`. Not an incident MTTR — the restore time as the pipeline sees it |
 
-Two of the four come out of the box, the third once the commit timestamp is in
-the environment. The fourth needs something Pipeyard does not see.
+One metric for free, four for a pipeline that names its steps. And none of the
+stages declares any of it: naming a stage is what produces its series.
+
+Note where the conditional lives: `when: on_failure` is the CI engine's job, and
+it stays there. Pipeyard only has to make `rollback` a stage of its own.
 
 `examples/_otel_local/` holds a compose file with Tempo, Prometheus, Grafana and
 an OTel collector, for looking at all of it locally.

@@ -67,9 +67,9 @@ First version meant to be used by someone other than its author.
   in a span, a counter and a duration sample, with no code in the stages and no
   way for one to opt out. `lay.StageObserver` is the OpenTelemetry
   implementation; `pi` declares the interface and gains no dependency.
-  Deployment frequency and the pipeline's change failure rate come out of it
-  directly, lead time for changes once the CI engine exposes the commit
-  timestamp.
+  Which DORA metrics come out of it depends on the stages a pipeline names:
+  a single `deploy` gives deployment frequency, while `deploy`, `verify` and
+  `rollback` as separate stages give all four, three of them exactly.
 - `pi.Run` flushes the observer before exiting. A batching exporter in a
   short-lived command kept everything in memory, so the previous
   instrumentation produced telemetry and discarded it.
