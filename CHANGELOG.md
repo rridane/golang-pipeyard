@@ -3,7 +3,7 @@
 Versions follow semver. Until 1.0.0 the API can change between minor versions;
 breaking changes are listed first in each entry.
 
-## 0.1.0 — unreleased
+## 0.1.0 — 2026-10-11
 
 First version meant to be used by someone other than its author.
 
