@@ -1,6 +1,8 @@
 package pi
 
 import (
+	"slices"
+
 	"github.com/rridane/golang-pipeyard/ru"
 )
 
@@ -48,4 +50,24 @@ func (s *StageSpec) AddFlag(name string, flagType ru.FlagType, description strin
 
 func (s *StageSpec) SetDescription(short string) {
 	s.short = short
+}
+
+// What a stage exposes is a contract, so a test has to be able to read it
+// back: that a flag is still named timeout, still a duration, still required.
+
+func (s *StageSpec) Command() string { return s.command }
+
+func (s *StageSpec) Short() string { return s.short }
+
+// Flags returns a copy, so reading the spec cannot change it.
+func (s *StageSpec) Flags() []ru.Flag { return slices.Clone(s.args) }
+
+// Flag finds one by name.
+func (s *StageSpec) Flag(name string) (ru.Flag, bool) {
+	for _, flag := range s.args {
+		if flag.Name == name {
+			return flag, true
+		}
+	}
+	return ru.Flag{}, false
 }
