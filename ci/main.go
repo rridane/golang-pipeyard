@@ -26,22 +26,26 @@ func main() {
 	loadEnv()
 
 	endpoint, insecure := otlpTarget()
+	protocol := os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL")
 
 	tracer := &otel.TracerInjector{
 		ServiceName:              serviceName,
 		OtelExporterOtlpEndpoint: endpoint,
 		Insecure:                 insecure,
+		Protocol:                 protocol,
 	}
 	meter := &otel.MeterInjector{
 		ServiceName:              serviceName,
 		OtelExporterOtlpEndpoint: endpoint,
 		Insecure:                 insecure,
+		Protocol:                 protocol,
 	}
 	logger := &otel.TelemetryLoggerInjector{
 		ServiceName:              serviceName,
 		EnableOtelExport:         endpoint != "",
 		OtelExporterOtlpEndpoint: endpoint,
 		OtelInsecure:             insecure,
+		Protocol:                 protocol,
 	}
 
 	pipe := pi.NewPipeline(pi.PipelineConfig{

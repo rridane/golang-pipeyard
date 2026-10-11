@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp"
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
@@ -16,9 +17,11 @@ import (
 type MeterInjector struct {
 	ServiceName string
 	provider    metric.MeterProvider
-	// otel grpc exporter endpoint
+	// otel exporter endpoint, as host:port without a scheme
 	OtelExporterOtlpEndpoint string
 	Insecure                 bool
+	// Protocol is ProtocolGRPC when empty.
+	Protocol string
 }
 
 func (m *MeterInjector) Inject(stageName string) metric.Meter {
@@ -37,15 +40,7 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 
 	ctx := context.Background()
 
-	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
-
-	if m.Insecure {
-		options = append(options, otlpmetricgrpc.WithInsecure())
-	}
-
-	exporter, err := otlpmetricgrpc.New(ctx,
-		options...,
-	)
+	exporter, err := m.newExporter(ctx, endpoint)
 	if err != nil {
 		fmt.Println("create the OTLP metric exporter:", err)
 		return noop.NewMeterProvider()
@@ -62,6 +57,22 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 	)
 	otel.SetMeterProvider(mp)
 	return mp
+}
+
+func (m *MeterInjector) newExporter(ctx context.Context, endpoint string) (sdkmetric.Exporter, error) {
+	if m.Protocol == ProtocolHTTP {
+		options := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(endpoint)}
+		if m.Insecure {
+			options = append(options, otlpmetrichttp.WithInsecure())
+		}
+		return otlpmetrichttp.New(ctx, options...)
+	}
+
+	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
+	if m.Insecure {
+		options = append(options, otlpmetricgrpc.WithInsecure())
+	}
+	return otlpmetricgrpc.New(ctx, options...)
 }
 
 func (m *MeterInjector) Shutdown(ctx context.Context) {

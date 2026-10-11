@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.24.0"
@@ -15,9 +16,11 @@ import (
 type TracerInjector struct {
 	ServiceName string
 	provider    trace.TracerProvider
-	// otel grpc exporter endpoint
+	// otel exporter endpoint, as host:port without a scheme
 	OtelExporterOtlpEndpoint string
 	Insecure                 bool
+	// Protocol is ProtocolGRPC when empty.
+	Protocol string
 }
 
 func (t *TracerInjector) Inject(stageName string) trace.Tracer {
@@ -37,15 +40,7 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 
 	ctx := context.Background()
 
-	options := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(endpoint)}
-
-	if t.Insecure {
-		options = append(options, otlptracegrpc.WithInsecure())
-	}
-
-	exporter, err := otlptracegrpc.New(ctx,
-		options...,
-	)
+	exporter, err := t.newExporter(ctx, endpoint)
 
 	if err != nil {
 		fmt.Println("create the OTLP trace exporter:", err)
@@ -62,6 +57,22 @@ func (t *TracerInjector) initTracerProvider() trace.TracerProvider {
 	)
 	otel.SetTracerProvider(tp)
 	return tp
+}
+
+func (t *TracerInjector) newExporter(ctx context.Context, endpoint string) (sdktrace.SpanExporter, error) {
+	if t.Protocol == ProtocolHTTP {
+		options := []otlptracehttp.Option{otlptracehttp.WithEndpoint(endpoint)}
+		if t.Insecure {
+			options = append(options, otlptracehttp.WithInsecure())
+		}
+		return otlptracehttp.New(ctx, options...)
+	}
+
+	options := []otlptracegrpc.Option{otlptracegrpc.WithEndpoint(endpoint)}
+	if t.Insecure {
+		options = append(options, otlptracegrpc.WithInsecure())
+	}
+	return otlptracegrpc.New(ctx, options...)
 }
 
 func (t *TracerInjector) Shutdown(ctx context.Context) {

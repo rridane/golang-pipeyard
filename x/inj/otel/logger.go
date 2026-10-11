@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
+	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/log/global"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
@@ -26,6 +27,8 @@ type TelemetryLoggerInjector struct {
 	// log level in debug, trace, info, warn, error
 	LogLevel     zapcore.Level
 	OtelInsecure bool
+	// Protocol is ProtocolGRPC when empty.
+	Protocol string
 }
 
 func (l *TelemetryLoggerInjector) Inject(stageName string) *zap.Logger {
@@ -64,20 +67,26 @@ func (l *TelemetryLoggerInjector) newLogger(stageName string) *zap.Logger {
 	return logger
 }
 
-func (l *TelemetryLoggerInjector) initOtelLogProvider(stageName, endpoint string) (*sdklog.LoggerProvider, error) {
-	ctx := context.Background()
-
-	options := []otlploggrpc.Option{
-		otlploggrpc.WithEndpoint(endpoint),
+func (l *TelemetryLoggerInjector) newExporter(ctx context.Context, endpoint string) (sdklog.Exporter, error) {
+	if l.Protocol == ProtocolHTTP {
+		options := []otlploghttp.Option{otlploghttp.WithEndpoint(endpoint)}
+		if l.OtelInsecure {
+			options = append(options, otlploghttp.WithInsecure())
+		}
+		return otlploghttp.New(ctx, options...)
 	}
 
+	options := []otlploggrpc.Option{otlploggrpc.WithEndpoint(endpoint)}
 	if l.OtelInsecure {
 		options = append(options, otlploggrpc.WithInsecure())
 	}
+	return otlploggrpc.New(ctx, options...)
+}
 
-	exporter, err := otlploggrpc.New(ctx,
-		options...,
-	)
+func (l *TelemetryLoggerInjector) initOtelLogProvider(stageName, endpoint string) (*sdklog.LoggerProvider, error) {
+	ctx := context.Background()
+
+	exporter, err := l.newExporter(ctx, endpoint)
 
 	if err != nil {
 		return nil, fmt.Errorf("create the OTLP log exporter: %w", err)
