@@ -22,14 +22,21 @@ func (s *TestStage) Configure() *pi.StageSpec {
 }
 
 func (s *TestStage) Execute(ctx context.Context, args ru.ParsedArgs, sh *mod.ShellExecutor, log *zap.Logger) error {
-	flags := fmt.Sprintf("-timeout %s", args.Duration("timeout"))
-	if args.Bool("race") {
-		flags += " -race"
-	}
-
 	log.Info("running tests",
 		zap.String("pkg", args.String("pkg")),
 		zap.Bool("race", args.Bool("race")))
 
-	return sh.Run(ctx, fmt.Sprintf("go test %s %s", flags, args.String("pkg")))
+	return sh.Run(ctx, testScript(args))
+}
+
+// testScript is where the flags come together, kept out of Execute so a test
+// can check it without running a go test inside a go test.
+func testScript(args ru.ParsedArgs) string {
+	flags := fmt.Sprintf("-timeout %s", args.Duration("timeout"))
+
+	if args.Bool("race") {
+		flags += " -race"
+	}
+
+	return fmt.Sprintf("go test %s %s", flags, args.String("pkg"))
 }

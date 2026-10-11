@@ -12,9 +12,11 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/x/inj/container"
+	"github.com/rridane/golang-pipeyard/x/inj/forge"
 	"github.com/rridane/golang-pipeyard/x/inj/otel"
 	"github.com/rridane/golang-pipeyard/x/inj/sys"
 	"github.com/rridane/golang-pipeyard/x/lay"
+	"github.com/rridane/golang-pipeyard/x/mod"
 )
 
 // version is set at build time with -ldflags "-X main.version=...".
@@ -27,6 +29,7 @@ func main() {
 
 	endpoint, insecure := otlpTarget()
 	protocol := os.Getenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+	owner, repo := splitProject(pi.ReadIdentity().Project)
 
 	tracer := &otel.TracerInjector{
 		ServiceName:              serviceName,
@@ -57,14 +60,20 @@ func main() {
 
 		Injectors: []any{
 			logger,
+			&sys.IdentityInjector{},
 			&sys.ShellExecutorInjector{Timeout: 15 * time.Minute},
-			&container.ContainerBuilderInjector{},
+			&container.ContainerBuilderInjector{Registries: registryFromEnv()},
+			&forge.GitHubReleaseInjector{
+				Token: os.Getenv("GITHUB_TOKEN"),
+				Owner: owner,
+				Repo:  repo,
+			},
 		},
 
 		Observer: &lay.StageObserver{
 			Tracer: tracer.Inject(serviceName),
 			Meter:  meter.Inject(serviceName),
-			Logger: logger.Inject("observer"),
+			Logger: logger.Inject(""),
 			Flags:  []string{"push"},
 			Shutdown: []func(context.Context){
 				tracer.Shutdown, meter.Shutdown, logger.Shutdown,
@@ -72,11 +81,13 @@ func main() {
 		},
 	})
 
-	pipe.RegisterStage(&FormatStage{}).
+	pipe.RegisterStage(&BuildStage{}).
+		RegisterStage(&FormatStage{}).
 		RegisterStage(&VetStage{}).
 		RegisterStage(&TestStage{}).
 		RegisterStage(&LintStage{}).
-		RegisterStage(&ReleaseStage{})
+		RegisterStage(&ReleaseStage{}).
+		RegisterStage(&PublishStage{})
 
 	pipe.Run(context.Background())
 }
@@ -87,6 +98,30 @@ func loadEnv() {
 	if err := godotenv.Load(); err != nil && !os.IsNotExist(err) {
 		fmt.Fprintf(os.Stderr, "warning: .env not loaded: %v\n", err)
 	}
+}
+
+// registryFromEnv reads the one registry this run pushes to. From the
+// environment rather than a flag: a token on the command line ends up in the
+// runner's logs and in ps. An empty host means Docker Hub.
+func registryFromEnv() map[string]mod.RegistryCredential {
+	user := os.Getenv("PIPEYARD_REGISTRY_USER")
+	token := os.Getenv("PIPEYARD_REGISTRY_TOKEN")
+
+	if user == "" || token == "" {
+		return nil
+	}
+
+	return map[string]mod.RegistryCredential{
+		os.Getenv("PIPEYARD_REGISTRY_HOST"): {Username: user, Password: token},
+	}
+}
+
+// splitProject cuts owner/repo apart. The project name is written the forge's
+// way, so reading it that way belongs here, in the pipeline that knows its
+// forge, and not in the framework.
+func splitProject(project string) (owner, repo string) {
+	owner, repo, _ = strings.Cut(project, "/")
+	return owner, repo
 }
 
 // otlpTarget reads the standard variable, which is a URL, and hands back the

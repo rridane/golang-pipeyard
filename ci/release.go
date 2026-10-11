@@ -17,7 +17,7 @@ func (s *ReleaseStage) Configure() *pi.StageSpec {
 	spec := pi.NewStageSpec("release")
 	spec.SetDescription("Build the pipeline image and push it")
 	spec.AddFlag("version", ru.StringFlag, "semver version, without a leading v", "", true)
-	spec.AddFlag("image", ru.StringFlag, "image repository", "rridane/pipeyard", false)
+	spec.AddFlag("image", ru.StringFlag, "image repository", "ghcr.io/rridane/pipeyard", false)
 	spec.AddFlag("push", ru.BoolFlag, "push to the registry", false, false)
 	spec.AddFlag("insecure", ru.BoolFlag, "registry without TLS", false, false)
 	return spec
@@ -100,7 +100,8 @@ func (r release) publish(ctx context.Context, image *mod.Artifact, tag string) e
 }
 
 // recipe carries Go in the runtime stage on purpose: the fmt, vet and test
-// stages shell out to the toolchain, so the image has to provide it.
+// stages shell out to the toolchain, so the image has to provide it, and the
+// user it runs as has to be able to write the caches the toolchain keeps.
 func (r release) recipe() mod.Dockerfile {
 	return mod.Dockerfile{
 		Args: r,
@@ -118,7 +119,12 @@ func (r release) recipe() mod.Dockerfile {
 			      -o /out/pipeyard-ci ./ci
 
 			FROM golang:1.24-alpine AS runtime
-			RUN adduser -S -D -H ci
+			# The toolchain needs a writable build and module cache, and uid 1001
+			# is what a CI runner owns a mounted workspace with, so the pipeline
+			# works without running as root.
+			RUN adduser -S -D -u 1001 -h /home/ci ci \
+			 && mkdir -p /home/ci/.cache /go/pkg/mod \
+			 && chown -R ci /home/ci /go
 			COPY --from=builder /out/pipeyard-ci /usr/local/bin/pipeyard-ci
 			USER ci
 			WORKDIR /workspace
