@@ -2,12 +2,14 @@ package ru
 
 import (
 	"fmt"
+	"time"
 )
 
 type ParsedArgs struct {
-	boolParams   map[string]bool
-	stringParams map[string]string
-	intParams    map[string]int
+	boolParams     map[string]bool
+	stringParams   map[string]string
+	intParams      map[string]int
+	durationParams map[string]time.Duration
 }
 
 /* ----------------- String ----------------- */
@@ -67,9 +69,28 @@ func (a *ParsedArgs) RequireBool(name string) (bool, error) {
 	return false, fmt.Errorf("missing required bool arg: %s", name)
 }
 
+/* ----------------- Duration ----------------- */
+
+func (a *ParsedArgs) DurationOk(name string) (time.Duration, bool) {
+	v, ok := a.durationParams[name]
+	return v, ok
+}
+
+func (a *ParsedArgs) Duration(name string) time.Duration {
+	v, _ := a.DurationOk(name)
+	return v
+}
+
+func (a *ParsedArgs) RequireDuration(name string) (time.Duration, error) {
+	if v, ok := a.DurationOk(name); ok {
+		return v, nil
+	}
+	return 0, fmt.Errorf("missing required duration arg: %s", name)
+}
+
 /* ----------------- Keys ----------------- */
 
-func (a *ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys []string) {
+func (a *ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys, durationKeys []string) {
 	for k := range a.stringParams {
 		stringsKeys = append(stringsKeys, k)
 	}
@@ -79,12 +100,15 @@ func (a *ParsedArgs) Keys() (stringsKeys, boolKeys, intKeys []string) {
 	for k := range a.intParams {
 		intKeys = append(intKeys, k)
 	}
+	for k := range a.durationParams {
+		durationKeys = append(durationKeys, k)
+	}
 	return
 }
 
 /* ----------------- Setters ----------------- */
 
-// SetString enregistre (ou écrase) une valeur string.
+// SetString records (or overwrites) a string value.
 func (a *ParsedArgs) SetString(name, value string) {
 	if a.stringParams == nil {
 		a.stringParams = make(map[string]string)
@@ -92,7 +116,7 @@ func (a *ParsedArgs) SetString(name, value string) {
 	a.stringParams[name] = value
 }
 
-// SetBool enregistre (ou écrase) une valeur bool.
+// SetBool records (or overwrites) a bool value.
 func (a *ParsedArgs) SetBool(name string, value bool) {
 	if a.boolParams == nil {
 		a.boolParams = make(map[string]bool)
@@ -100,10 +124,18 @@ func (a *ParsedArgs) SetBool(name string, value bool) {
 	a.boolParams[name] = value
 }
 
-// SetInt enregistre (ou écrase) une valeur int.
+// SetInt records (or overwrites) an int value.
 func (a *ParsedArgs) SetInt(name string, value int) {
 	if a.intParams == nil {
 		a.intParams = make(map[string]int)
 	}
 	a.intParams[name] = value
+}
+
+// SetDuration records (or overwrites) a duration value.
+func (a *ParsedArgs) SetDuration(name string, value time.Duration) {
+	if a.durationParams == nil {
+		a.durationParams = make(map[string]time.Duration)
+	}
+	a.durationParams[name] = value
 }

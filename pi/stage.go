@@ -25,7 +25,7 @@ func NewStageSpec(name string) *StageSpec {
 	}
 }
 
-func (s *StageSpec) AddFlag(name string, flagType ru.FlagType, description string, defaultValue string, required bool) {
+func (s *StageSpec) AddFlag(name string, flagType ru.FlagType, description string, defaultValue any, required bool) {
 
 	s.args = append(s.args, ru.Flag{
 		Name:        name,
