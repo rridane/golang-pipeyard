@@ -763,6 +763,17 @@ tested, versioned, instrumented.
 
 ---
 
+## Status
+
+Pipeyard is in beta. The framework runs, builds and releases itself, and
+everything documented here works today — but the API is still moving, and a
+version below `1.0.0` means exactly that: pin an exact tag rather than a
+floating one, and read the changelog before moving it.
+
+The full launch is planned for early 2027.
+
+---
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
