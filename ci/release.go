@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/rridane/golang-pipeyard/pi"
@@ -20,6 +21,7 @@ func (s *ReleaseStage) Configure() *pi.StageSpec {
 	spec.AddFlag("image", ru.StringFlag, "image repository", "ghcr.io/rridane/pipeyard", false)
 	spec.AddFlag("push", ru.BoolFlag, "push to the registry", false, false)
 	spec.AddFlag("insecure", ru.BoolFlag, "registry without TLS", false, false)
+	spec.AddFlag("dist", ru.StringFlag, "directory the binary is extracted to", "./dist", false)
 	return spec
 }
 
@@ -39,10 +41,14 @@ func (s *ReleaseStage) Execute(ctx context.Context, args ru.ParsedArgs, cb *mod.
 		return fmt.Errorf("build the pipeline image: %w", err)
 	}
 
-	if err := image.ExtractTo(ctx, "/usr/local/bin/pipeyard-ci", "./dist"); err != nil {
+	// Where publish reads it from. Declared on both sides so the contract
+	// between the two stages shows in --help instead of being a convention.
+	dist := args.String("dist")
+
+	if err := image.ExtractTo(ctx, "/usr/local/bin/pipeyard-ci", dist); err != nil {
 		return fmt.Errorf("extract the binary: %w", err)
 	}
-	log.Info("binary written", zap.String("path", "./dist/pipeyard-ci"))
+	log.Info("binary written", zap.String("path", filepath.Join(dist, "pipeyard-ci")))
 
 	if !release.push {
 		log.Info("image built, not pushed", zap.Strings("tags", release.tags()))

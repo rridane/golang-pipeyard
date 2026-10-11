@@ -41,6 +41,7 @@ type Release struct {
 
 	client  *github.Client
 	created bool
+	id      int64
 	err     error
 }
 
@@ -205,25 +206,72 @@ func (r *Release) CreateRelease() IRelease {
 		return r
 	}
 
-	release := &github.RepositoryRelease{
-		TagName:         &r.TagName,
-		TargetCommitish: &r.TargetCommitish,
-		Name:            &r.ReleaseName,
-		Body:            &r.Body,
-		Draft:           &r.Draft,
-		Prerelease:      &r.Prerelease,
+	ctx := context.Background()
+
+	// A draft is not addressable by its tag, so a replayed release has to find
+	// the one it already made by listing. Creating again would make a second
+	// draft: among drafts, GitHub does not treat a tag as unique.
+	existing, err := r.findByTag(ctx)
+	if err != nil {
+		return r.fail("look for an existing release on %s: %w", r.TagName, err)
+	}
+
+	if existing != nil {
+		return r.adopt(existing)
 	}
 
 	created, _, err := r.client.Repositories.CreateRelease(
-		context.Background(), r.Config.Owner, r.Config.Repo, release)
+		ctx, r.Config.Owner, r.Config.Repo, &github.RepositoryRelease{
+			TagName:         &r.TagName,
+			TargetCommitish: &r.TargetCommitish,
+			Name:            &r.ReleaseName,
+			Body:            &r.Body,
+			Draft:           &r.Draft,
+			Prerelease:      &r.Prerelease,
+		})
+
 	if err != nil {
 		return r.fail("create the release %s: %w", r.ReleaseName, err)
 	}
 
+	return r.adopt(created)
+}
+
+// adopt records which release the rest of the chain works on. Every step after
+// this one needs its id: the upload and the edit endpoints take one, and a
+// draft has no other address.
+func (r *Release) adopt(release *github.RepositoryRelease) IRelease {
 	r.created = true
-	r.URL = created.GetHTMLURL()
+	r.id = release.GetID()
+	r.URL = release.GetHTMLURL()
 
 	return r
+}
+
+// findByTag returns the release carrying the tag, or nil when none does. It
+// lists instead of calling /releases/tags/{tag}, because that endpoint answers
+// 404 for a draft.
+func (r *Release) findByTag(ctx context.Context) (*github.RepositoryRelease, error) {
+	options := &github.ListOptions{PerPage: 100}
+
+	for {
+		releases, response, err := r.client.Repositories.ListReleases(
+			ctx, r.Config.Owner, r.Config.Repo, options)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, release := range releases {
+			if release.GetTagName() == r.TagName {
+				return release, nil
+			}
+		}
+
+		if response == nil || response.NextPage == 0 {
+			return nil, nil
+		}
+		options.Page = response.NextPage
+	}
 }
 
 // UploadAssets attaches files to the release.
@@ -237,14 +285,8 @@ func (r *Release) UploadAssets(assets []string) IRelease {
 
 	ctx := context.Background()
 
-	release, _, err := r.client.Repositories.GetReleaseByTag(
-		ctx, r.Config.Owner, r.Config.Repo, r.TagName)
-	if err != nil {
-		return r.fail("read the release %s: %w", r.TagName, err)
-	}
-
 	for _, asset := range assets {
-		if err := r.uploadAsset(ctx, release.GetID(), asset); err != nil {
+		if err := r.uploadAsset(ctx, r.id, asset); err != nil {
 			return r.fail("upload %s: %w", asset, err)
 		}
 	}
@@ -276,18 +318,10 @@ func (r *Release) Publish() IRelease {
 		return r.fail("publish: the release must be created first")
 	}
 
-	ctx := context.Background()
-
-	release, _, err := r.client.Repositories.GetReleaseByTag(
-		ctx, r.Config.Owner, r.Config.Repo, r.TagName)
-	if err != nil {
-		return r.fail("read the release %s: %w", r.TagName, err)
-	}
-
 	draft := false
 
 	if _, _, err := r.client.Repositories.EditRelease(
-		ctx, r.Config.Owner, r.Config.Repo, release.GetID(),
+		context.Background(), r.Config.Owner, r.Config.Repo, r.id,
 		&github.RepositoryRelease{Draft: &draft}); err != nil {
 		return r.fail("publish the release %s: %w", r.TagName, err)
 	}
