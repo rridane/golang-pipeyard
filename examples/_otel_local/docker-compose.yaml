@@ -3,7 +3,8 @@ version: "3.9"
 services:
   # === OpenTelemetry Collector ===
   otel-collector:
-    image: otel/opentelemetry-collector:latest
+    # contrib, for the deltatocumulative processor the config relies on.
+    image: otel/opentelemetry-collector-contrib:0.140.1
     container_name: otel-collector
     volumes:
       - ./otel-collector-config.yaml:/etc/otel/config.yaml:ro

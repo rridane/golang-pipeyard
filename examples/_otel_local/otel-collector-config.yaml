@@ -6,6 +6,12 @@ receivers:
       http:
         endpoint: 0.0.0.0:4313
 
+processors:
+  # A pipeline run is a short-lived process exporting delta counters. Prometheus
+  # only understands cumulative ones, so they are summed here.
+  deltatocumulative:
+    max_stale: 1h
+
 exporters:
   # Prints everything received, for local inspection.
   debug:
@@ -28,6 +34,7 @@ service:
       exporters: [debug, otlp/tempo]
     metrics:
       receivers: [otlp]
+      processors: [deltatocumulative]
       exporters: [debug, prometheus]
     logs:
       receivers: [otlp]

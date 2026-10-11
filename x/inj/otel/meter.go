@@ -9,6 +9,7 @@ import (
 	"go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/metric/noop"
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
+	"go.opentelemetry.io/otel/sdk/metric/metricdata"
 	"time"
 )
 
@@ -55,18 +56,32 @@ func (m *MeterInjector) initMeterProvider() metric.MeterProvider {
 
 func (m *MeterInjector) newExporter(ctx context.Context, endpoint string) (sdkmetric.Exporter, error) {
 	if m.Protocol == ProtocolHTTP {
-		options := []otlpmetrichttp.Option{otlpmetrichttp.WithEndpoint(endpoint)}
+		options := []otlpmetrichttp.Option{
+			otlpmetrichttp.WithEndpoint(endpoint),
+			otlpmetrichttp.WithTemporalitySelector(deltaTemporality),
+		}
 		if m.Insecure {
 			options = append(options, otlpmetrichttp.WithInsecure())
 		}
 		return otlpmetrichttp.New(ctx, options...)
 	}
 
-	options := []otlpmetricgrpc.Option{otlpmetricgrpc.WithEndpoint(endpoint)}
+	options := []otlpmetricgrpc.Option{
+		otlpmetricgrpc.WithEndpoint(endpoint),
+		otlpmetricgrpc.WithTemporalitySelector(deltaTemporality),
+	}
 	if m.Insecure {
 		options = append(options, otlpmetricgrpc.WithInsecure())
 	}
 	return otlpmetricgrpc.New(ctx, options...)
+}
+
+// A pipeline run is a process that starts, counts one stage and exits. Its
+// cumulative counter would export the same 1 every run, which reads as a flat
+// line: rate and increase over it are zero. A delta says "one more since the
+// last export", which the collector turns back into a growing counter.
+func deltaTemporality(sdkmetric.InstrumentKind) metricdata.Temporality {
+	return metricdata.DeltaTemporality
 }
 
 func (m *MeterInjector) Shutdown(ctx context.Context) {
