@@ -18,8 +18,9 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      # Compile the whole module, then the pipeline binary. Everything below
-      # calls that binary, so nothing here needs to change when a stage does.
+      # This repository compiles its own pipeline on purpose: a change to ci/
+      # must be validated by the pipeline it changes. Consumer projects run a
+      # published image instead and never build — see the README.
       - name: Build
         run: |
           go build ./...

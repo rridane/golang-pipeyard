@@ -1,10 +1,10 @@
 # Pipeyard
 
-A Go framework for writing CI/CD stages as ordinary functions, shipped as one
-binary per organisation.
+A Go framework for writing CI/CD stages as ordinary functions, compiled into
+one binary per organisation.
 
-Your projects stop carrying their pipeline logic. They download an executable
-and call it.
+Your projects stop carrying their pipeline logic. Their CI configuration
+becomes a few lines that call an executable, and then stops changing.
 
 ```yaml
 # .gitlab-ci.yml, in every project
@@ -14,6 +14,10 @@ build:
   script: corp-ci build --version $CI_COMMIT_TAG --push
 ```
 
+The pipeline itself moves to one repository, where it has a version, a
+changelog, tests and a rollback. That is the part that is hard to get any
+other way.
+
 Status: **v0, API in motion.** It builds, it pushes images that run, and a
 failing stage fails the job. The rough edges are listed at the bottom.
 
@@ -21,14 +25,25 @@ failing stage fails the job. The rough edges are listed at the bottom.
 
 ## The problem it addresses
 
-A pipeline that lives in YAML, in forty repositories, has no tests, no types,
-no refactoring, and no version. When the base image changes, someone opens
+A pipeline that lives in YAML, spread across forty repositories, has three
+problems that compound.
+
+**It cannot be tested.** The only way to find out whether a `script:` block
+works is to push, wait for a runner, read the log, fix, push again. Every
+attempt costs minutes and stays in the repository's history.
+
+**It cannot be changed in one place.** When the base image moves, someone opens
 forty merge requests. When a `script:` block grows past ten lines, nobody
 reviews it any more.
 
-Pipeyard moves that logic into Go. A stage becomes a function you can read,
-test and version. The CI engine keeps what it is good at — sequencing, matrix
-builds, artifacts between jobs — and calls your binary for the work itself.
+**It has no version.** There is no way to say "put the CI back to what it was
+on Tuesday" across forty projects.
+
+Pipeyard moves that logic into Go. A stage becomes a function that runs the
+same way on a laptop and on a runner, that `go test` can exercise, and that
+ships as a versioned artifact. The CI engine keeps what it is good at —
+sequencing, matrix builds, artifacts between jobs, triggers — and calls the
+binary for the work itself.
 
 Pipeyard is not an orchestrator. There is no DAG, no conditional branching.
 One invocation, one stage, one exit code.
@@ -114,6 +129,46 @@ $ corp-ci test --pkg ./internal/... --timeout 2m
 A stage whose `Execute` cannot be dispatched — wrong name, no return value, a
 return that is not an `error` — makes the binary refuse to start, with the
 reason. The compiler cannot catch those, so registration does.
+
+---
+
+## Distributing the pipeline
+
+The binary is built and published once, by the repository that owns the
+pipeline. Consumer projects never build it.
+
+**Publish on release, run an image everywhere else.** A tag on the pipeline
+repository builds the binary, bakes it into an image, and pushes both. Every
+other project runs that image:
+
+```yaml
+jobs:
+  build:
+    container: ghcr.io/corp/ci:1
+    steps:
+      - uses: actions/checkout@v4
+      - run: corp-ci test --timeout 5m
+```
+
+The CI logic now goes through the same cycle as application code: a release
+candidate you can run locally against a real project checkout, a tag, a
+changelog, and a rollback.
+
+Two consequences are worth stating plainly.
+
+**Where the version lives decides whether you solved anything.** Fetching the
+binary with `curl .../releases/download/v1.4.0/corp-ci` puts the version back
+into forty YAML files: you removed the duplicated logic and kept the duplicated
+version. A floating tag (`ci:1`, `ci:stable`) keeps it in one place — you move
+the tag, the next run picks it up, no project changes.
+
+**Centralising concentrates the blast radius.** Forty drifted YAML files are
+forty small problems that fail independently. One shared binary is one bad
+release breaking forty pipelines at once. The mitigation is release discipline,
+not a feature: a canary tag on two projects, a stable tag on the rest, pinning
+available to a project that needs to hold back, and a changelog that says what
+changed in the logic. Put that in place before asking an organisation to
+centralise.
 
 ---
 
@@ -261,6 +316,31 @@ system shell has to be present in the image.
 
 ---
 
+## What the binary depends on
+
+Every `sh.Run` is a dependency on whatever happens to be installed on the
+runner. Every injector is not:
+
+| | |
+|---|---|
+| `HelmInjector` | the Helm Go library — no `helm` binary |
+| `K8sInjector` | client-go — no `kubectl` |
+| `ContainerBuilder` | gRPC to BuildKit — no Docker CLI |
+| `TerraformInjector` | `exec.LookPath("terraform")` — **needs the binary** |
+| `ShellExecutor` | runs whatever you name |
+
+So the injectors are not dependency-injection sugar: they are what makes the
+binary self-sufficient. A pipeline written with injectors alone is one static
+executable with nothing to install around it, and a plain download is enough to
+ship it. A pipeline that leans on `sh.Run` needs an image that carries its
+tools.
+
+Worth knowing before choosing how to distribute: the shell is the escape hatch,
+and it costs hermeticity. `TerraformInjector` is the one injector that breaks
+it, because `terraform-exec` drives the real binary.
+
+---
+
 ## Observability
 
 The three OTel signals are wired, each behind its own injector, each exporting
@@ -344,6 +424,13 @@ bin/pipeyard-ci lint            # golangci-lint in a container, needs BuildKit
 
 No push, no failed job, no second push.
 
+**This repository is the one exception to the section above: it compiles the
+binary in its own CI instead of running a published image.** A pipeline change
+has to be validated by the pipeline it changes, the way a compiler is built
+with the previous compiler and then runs its own tests. Do not copy this
+workflow into a consumer project — copy the one under *Distributing the
+pipeline*.
+
 ---
 
 ## Where it stands
@@ -355,8 +442,12 @@ when a stage or a shell command fails.
 
 What is not there yet:
 
+- **No release process.** No tag, no changelog, no published image. The
+  distribution model described above is the intent, not the current state.
 - **No git injector.** Deriving a version from tags, generating a changelog, or
-  finding which modules of a monorepo changed has to go through `sh.Output`.
+  finding which modules of a monorepo changed has to go through `sh.Output` —
+  which also costs the binary its hermeticity, since it then needs git on the
+  runner.
 - **No companion services.** Integration tests that need a database stay with
   the CI engine's `services:`. BuildKit solves a hermetic graph; there is no
   shared network to attach a Postgres to.
