@@ -14,10 +14,50 @@ build:
   script: corp-ci build --version $CI_COMMIT_TAG --push
 ```
 
-The pipeline itself moves to one repository, where it has a version, a
-changelog, tests and a rollback. Every stage is instrumented without declaring
-anything, so the pipeline reports its own DORA metrics. That is the part that is
-hard to get any other way.
+## Pipeline as a product
+
+The pipeline stops being configuration and becomes something you ship. It lives
+in one repository, it has a version, a changelog, tests and a rollback, and the
+projects that call it are its consumers. Changing a shared check is a pull
+request on a Go file, reviewed and released — not a sweep across forty YAML
+files that nobody dares to finish.
+
+What that buys, concretely:
+
+| | |
+|---|---|
+| **A version** | a project pins `corp-ci:1.4.0` or follows `corp-ci:1`, and moves when it chooses |
+| **Tests** | a stage is a function, so `go test` exercises it before anyone pushes |
+| **A rollback** | a bad release is one tag away from being undone, for every project at once |
+| **An API** | the stages and their flags are the contract, and `--help` is its documentation |
+| **Instrumentation** | every stage reports a span, a counter and a duration without declaring anything, so the pipeline reports its own DORA metrics |
+
+A product is also rolled out progressively, and that works on two scales here.
+The floating tag does it between versions — two projects follow
+`corp-ci:canary` while the rest follow `corp-ci:1`. A feature flag does it
+inside one: a new check ships disabled, is turned on for two projects, then for
+all, with no release at all.
+
+Any flagging tool works, because an injector is a struct with one method.
+`x/inj/featureflag` ships one for Unleash. And the context a flag needs to
+target a subset is already in the pipeline: `pi.Identity` carries the project
+the run belongs to.
+
+```go
+func (s *VerifyStage) Execute(ctx context.Context, args ru.ParsedArgs,
+	flags *unleash.Client, run pi.Identity) error {
+
+	strict := flags.IsEnabled("strict-verify",
+		unleash.WithContext(unleashctx.Context{
+			Properties: map[string]string{"project": run.Project},
+		}))
+	...
+}
+```
+
+The instrumentation row is the part that is hard to get any other way.
+
+---
 
 Status: **v0.1.0.** The API can still change between minor versions; every
 change is listed in the [CHANGELOG](CHANGELOG.md), breaking ones first.
