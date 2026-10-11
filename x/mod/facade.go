@@ -7,6 +7,7 @@ import (
 	"github.com/rridane/golang-pipeyard/x/mod/internal/github_releases_sdk"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_finder"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/gitlab_releases_sdk"
+	"github.com/rridane/golang-pipeyard/x/mod/internal/mailer"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/shell_executor"
 	"github.com/rridane/golang-pipeyard/x/mod/internal/teams_sdk"
 	"go.uber.org/zap"
@@ -62,3 +63,13 @@ func NewGithubReleaseSDK(config github_releases_sdk.Config) *github_releases_sdk
 type Logger = zap.Logger
 
 type AssetFinder = asset_finder.AssetFinder
+
+// Mail
+
+type MailConfig = mailer.Config
+type MailMessage = mailer.Message
+type MailSender = mailer.MailSender
+
+func NewMailSender(config mailer.Config) *MailSender {
+	return mailer.New(config)
+}
