@@ -2,10 +2,6 @@ package pi
 
 import "os"
 
-// MountDirEnvVar overrides the mount directory, which differs between a laptop
-// run and a containerised one.
-const MountDirEnvVar = "PIPEYARD_MOUNT_DIR"
-
 const defaultMountDir = "./mounts"
 
 // Ctx is the pipeline's view of the filesystem it runs on. A stage receives it
