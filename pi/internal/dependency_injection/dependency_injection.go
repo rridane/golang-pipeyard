@@ -3,16 +3,24 @@ package dependency_injection
 import (
 	"fmt"
 	"reflect"
+	"slices"
 )
 
+// GetDependencies pairs each dependency parameter with an injector, in order.
+// An injector that serves a parameter is removed from the candidates, so two
+// parameters of the same type are served by two different injectors.
 func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName string) ([]reflect.Value, error) {
+
+	// Pairing consumes candidates, and the caller's slice is reused by every
+	// stage of the process.
+	injectMethods = slices.Clone(injectMethods)
 
 	var arg []reflect.Value
 	var missingDeps []string
 	numParams := m.Type.NumIn()
 
 	// 1: context.Context
-	// 2: *parsedArgs
+	// 2: ru.ParsedArgs
 	// 3+: dependencies
 	for p := 3; p < numParams; p++ {
 
@@ -28,6 +36,8 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 				continue
 			}
 
+			// Inject runs before the nil check below: an injector builds its
+			// service, and only then reports that it is not configured.
 			injectResponse := injectorMethod.Call([]reflect.Value{reflect.ValueOf(stageName)})
 
 			if len(injectResponse) == 0 {

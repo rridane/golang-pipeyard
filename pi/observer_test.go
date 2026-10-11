@@ -2,7 +2,6 @@ package pi
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -88,5 +87,4 @@ func TestObserver_AbsentObserverIsHarmless(t *testing.T) {
 	if err := e.generateExec(&failingStage{}, "fail")(context.Background(), ru.ParsedArgs{}); err == nil {
 		t.Fatal("a pipeline without an observer must still report failures")
 	}
-	_ = errors.New
 }

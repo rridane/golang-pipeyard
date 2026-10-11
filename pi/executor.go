@@ -18,8 +18,8 @@ var (
 )
 
 type executor struct {
-	Injectors []any
-	Observer  StageObserver
+	injectorMethods []reflect.Value
+	Observer        StageObserver
 }
 
 func (e *executor) generateExec(stage Stage, stageName string) func(ctx context.Context, args ru.ParsedArgs) error {
@@ -61,7 +61,7 @@ func (e *executor) run(ctx context.Context, stage Stage, stageName string, args 
 	}
 
 	dependencies, err := dependency_injection.GetDependencies(
-		signature, e.validateInjectorAndGetMethods(), stageName)
+		signature, e.injectorMethods, stageName)
 
 	if err != nil {
 		return err
@@ -141,24 +141,6 @@ func (e *executor) checkStage(stage Stage, stageName string) error {
 	}
 
 	return nil
-}
-
-func (e *executor) validateInjectorAndGetMethods() []reflect.Value {
-
-	var injectorMethods []reflect.Value
-
-	for i := range e.Injectors {
-
-		inj := e.Injectors[i]
-		method, err := dependency_injection.ValidateDependencyInjector(inj)
-		if err != nil {
-			fmt.Printf("injector skipped: %v\n", err)
-			continue
-		}
-
-		injectorMethods = append(injectorMethods, method)
-	}
-	return injectorMethods
 }
 
 func getExecuteMethodSignature(stage Stage) (reflect.Method, bool) {
