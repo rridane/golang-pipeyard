@@ -428,8 +428,7 @@ runner. Every injector is not:
 | `TerraformInjector` | `exec.LookPath("terraform")` — **needs the binary** |
 | `ShellExecutor` | runs whatever you name |
 
-So the injectors are not dependency-injection sugar: they are what makes the
-binary self-sufficient. A pipeline written with injectors alone is one static
+The injectors are what makes the binary self-sufficient. A pipeline written with injectors alone is one static
 executable with nothing to install around it, and a plain download is enough to
 ship it. A pipeline that leans on `sh.Run` needs an image that carries its
 tools.
@@ -523,14 +522,6 @@ jobs:
 
 On GitLab the same four come from `CI_PROJECT_PATH`, `CI_COMMIT_REF_NAME`,
 `CI_COMMIT_SHA` and `CI_COMMIT_TIMESTAMP`.
-
-The commit is deliberately absent from the metrics, and from the resource of
-the traces. A resource attribute becomes a label in a Prometheus store, and a
-commit as a label is one series per commit — including through a `spanmetrics`
-connector, which derives metrics from traces and copies their resource along.
-So the change rides the span, which is where lead time is computed from anyway,
-and the branch is attached to the series directly rather than to the resource,
-because a resource attribute cannot be filtered on.
 
 ### What the collector must do
 
@@ -731,8 +722,7 @@ would otherwise ship and be found by whoever upgrades first.
 The other publishes, on a tag, and builds from source on purpose. The release
 logic is part of what a commit can change: releasing with the previous binary
 would bake the previous recipe into the image, and a fix to the release stage
-could never land. It is why a compiler ships the stage built by the new
-compiler, not the one built by the old.
+could never land.
 
 ---
 
