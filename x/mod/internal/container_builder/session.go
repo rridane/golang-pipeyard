@@ -3,8 +3,10 @@ package container_builder
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/moby/buildkit/client"
@@ -17,6 +19,7 @@ import (
 	"github.com/moby/buildkit/session/auth/authprovider"
 	"github.com/moby/buildkit/session/secrets/secretsprovider"
 	dockerspec "github.com/moby/docker-image-spec/specs-go/v1"
+	"github.com/moby/patternmatcher/ignorefile"
 	"github.com/tonistiigi/fsutil"
 	"go.uber.org/zap"
 )
@@ -169,9 +172,9 @@ func (r BuildRequest) deliver(ref gateway.Reference, image *dockerspec.DockerOCI
 }
 
 func (r BuildRequest) solveOptions(target exportTarget) (client.SolveOpt, error) {
-	buildCtx, err := fsutil.NewFS(r.contextDir())
+	buildCtx, err := r.buildContext()
 	if err != nil {
-		return client.SolveOpt{}, fmt.Errorf("build context %s: %w", r.contextDir(), err)
+		return client.SolveOpt{}, err
 	}
 
 	return client.SolveOpt{
@@ -183,6 +186,51 @@ func (r BuildRequest) solveOptions(target exportTarget) (client.SolveOpt, error)
 
 // attachables grants the daemon access to the machine's secrets and registry
 // credentials, for the duration of the build only.
+// buildContext reads .dockerignore from the context directory and filters the
+// tree accordingly. Without it every build ships .git and whatever else the
+// directory happens to hold, and fails outright on a file it cannot read.
+func (r BuildRequest) buildContext() (fsutil.FS, error) {
+	dir := r.contextDir()
+
+	tree, err := fsutil.NewFS(dir)
+	if err != nil {
+		return nil, fmt.Errorf("build context %s: %w", dir, err)
+	}
+
+	excluded, err := r.dockerignore(dir)
+	if err != nil {
+		return nil, err
+	}
+	if len(excluded) == 0 {
+		return tree, nil
+	}
+
+	filtered, err := fsutil.NewFilterFS(tree, &fsutil.FilterOpt{ExcludePatterns: excluded})
+	if err != nil {
+		return nil, fmt.Errorf("apply %s: %w", dockerui.DefaultDockerignoreName, err)
+	}
+	return filtered, nil
+}
+
+func (r BuildRequest) dockerignore(dir string) ([]string, error) {
+	path := filepath.Join(dir, dockerui.DefaultDockerignoreName)
+
+	file, err := os.Open(path)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", path, err)
+	}
+	defer file.Close()
+
+	patterns, err := ignorefile.ReadAll(file)
+	if err != nil {
+		return nil, fmt.Errorf("parse %s: %w", path, err)
+	}
+	return patterns, nil
+}
+
 func (r BuildRequest) attachables() []session.Attachable {
 	auth := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
 		ConfigFile: config.LoadDefaultConfigFile(os.Stderr),

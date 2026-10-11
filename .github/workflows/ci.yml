@@ -3,6 +3,7 @@ name: CI
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
   workflow_dispatch:
@@ -34,3 +35,41 @@ jobs:
 
       - name: Test
         run: bin/pipeyard-ci test --timeout 5m
+
+  # A tag publishes the distribution image. This is the only place the binary
+  # is produced; consumer projects pull the image and never build.
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      # The release stage drives BuildKit over gRPC, so a daemon has to be up.
+      - name: Start BuildKit
+        run: |
+          docker run -d --name buildkit --privileged \
+            -p 1234:1234 moby/buildkit:latest --addr tcp://0.0.0.0:1234
+          timeout 60 sh -c 'until docker logs buildkit 2>&1 | grep -q "running server"; do sleep 1; done'
+
+      # docker login writes ~/.docker/config.json, which the builder reads.
+      - name: Log in to ghcr.io
+        run: echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+      - name: Build and push the pipeline image
+        run: |
+          go build -o bin/pipeyard-ci ./ci
+          bin/pipeyard-ci release --version "${GITHUB_REF_NAME#v}" --push
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pipeyard-ci-${{ github.ref_name }}
+          path: dist/pipeyard-ci

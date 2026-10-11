@@ -419,7 +419,8 @@ the same way on a laptop:
 go build -o bin/pipeyard-ci ./ci
 bin/pipeyard-ci fmt
 bin/pipeyard-ci test --pkg ./pi/ --race=false
-bin/pipeyard-ci lint            # golangci-lint in a container, needs BuildKit
+bin/pipeyard-ci lint                        # golangci-lint in a container
+bin/pipeyard-ci release --version 0.1.0     # builds its own distribution image
 ```
 
 No push, no failed job, no second push.
@@ -433,6 +434,29 @@ pipeline*.
 
 ---
 
+## Releasing
+
+The `release` stage builds the distribution image with Pipeyard's own container
+builder, extracts the binary, and pushes two tags: the exact version and its
+major, so a consumer can pin `0.1.0` or follow `0`.
+
+```bash
+bin/pipeyard-ci release --version 0.1.0 --push
+```
+
+Pushing a `v*` tag runs that stage in CI. Nothing else produces the binary.
+
+```bash
+git tag -a v0.1.0 -m "first usable version"
+git push origin v0.1.0
+```
+
+Breaking changes are listed first in each [CHANGELOG](CHANGELOG.md) entry,
+because for a shared pipeline binary they are the entries that matter: they are
+what a project has to react to before moving its floating tag.
+
+---
+
 ## Where it stands
 
 What is covered, and verified against a real BuildKit daemon and registry:
@@ -442,8 +466,9 @@ when a stage or a shell command fails.
 
 What is not there yet:
 
-- **No release process.** No tag, no changelog, no published image. The
-  distribution model described above is the intent, not the current state.
+- **No published image yet.** The release stage and the workflow that calls it
+  exist and have been run against a local registry, but no tag has been pushed,
+  so `ghcr.io/rridane/pipeyard-ci` is still empty.
 - **No git injector.** Deriving a version from tags, generating a changelog, or
   finding which modules of a monorepo changed has to go through `sh.Output` —
   which also costs the binary its hermeticity, since it then needs git on the

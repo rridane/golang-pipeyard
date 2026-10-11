@@ -13,7 +13,7 @@ require (
 	github.com/hashicorp/terraform-exec v0.24.0
 	github.com/moby/buildkit v0.25.1
 	github.com/moby/docker-image-spec v1.3.1
-	github.com/opencontainers/image-spec v1.1.1
+	github.com/moby/patternmatcher v0.6.0
 	github.com/spf13/cobra v1.10.1
 	github.com/tonistiigi/fsutil v0.0.0-20250605211040-586307ad452f
 	github.com/xanzy/go-gitlab v0.115.0
@@ -124,7 +124,6 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/mitchellh/reflectwalk v1.0.2 // indirect
 	github.com/moby/locker v1.0.1 // indirect
-	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/spdystream v0.5.0 // indirect
 	github.com/moby/sys/signal v0.7.1 // indirect
 	github.com/moby/term v0.5.2 // indirect
@@ -135,6 +134,7 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect

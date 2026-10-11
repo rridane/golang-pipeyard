@@ -1,0 +1,11 @@
+.git
+.github
+.idea
+.context
+bin
+dist
+examples
+backup
+*.md
+.env
+.env*
