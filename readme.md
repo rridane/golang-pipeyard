@@ -14,6 +14,16 @@ build:
   script: corp-ci build --version $CI_COMMIT_TAG --push
 ```
 
+Status: **v0.1.2**, in beta — see [Status](#status).
+
+**Why** · [Pipeline as a product](#pipeline-as-a-product) · [The problem it addresses](#the-problem-it-addresses) · [What YAML cannot express](#what-yaml-cannot-express) · [Independence from the runner](#independence-from-the-runner) · [Scope](#scope)
+
+**Writing a pipeline** · [A stage](#a-stage) · [Wiring the binary](#wiring-the-binary) · [Quickstart](#quickstart) · [Injectors](#injectors) · [Layers](#layers) · [Shell commands](#shell-commands) · [Building images](#building-images) · [What the binary depends on](#what-the-binary-depends-on) · [Observability](#observability)
+
+**Shipping a pipeline** · [Distributing the pipeline](#distributing-the-pipeline) · [Releasing](#releasing) · [Pipeyard builds Pipeyard](#pipeyard-builds-pipeyard)
+
+---
+
 ## Pipeline as a product
 
 The pipeline stops being configuration and becomes something you ship. It lives
@@ -34,33 +44,11 @@ What that buys, concretely:
 
 A product is also rolled out progressively, and that works on two scales here.
 The floating tag does it between versions — two projects follow
-`corp-ci:canary` while the rest follow `corp-ci:1`. A feature flag does it
-inside one: a new check ships disabled, is turned on for two projects, then for
-all, with no release at all.
-
-Any flagging tool works, because an injector is a struct with one method.
-`x/inj/featureflag` ships one for Unleash. And the context a flag needs to
-target a subset is already in the pipeline: `pi.Identity` carries the project
-the run belongs to.
-
-```go
-func (s *VerifyStage) Execute(ctx context.Context, args ru.ParsedArgs,
-	flags *unleash.Client, run pi.Identity) error {
-
-	strict := flags.IsEnabled("strict-verify",
-		unleash.WithContext(unleashctx.Context{
-			Properties: map[string]string{"project": run.Project},
-		}))
-	...
-}
-```
+`corp-ci:canary` while the rest follow `corp-ci:1`. A [feature
+flag](#progressive-rollout) does it inside one: a new check ships disabled, is
+turned on for two projects, then for all, with no release at all.
 
 The instrumentation row is the part that is hard to get any other way.
-
----
-
-Status: **v0.1.0.** The API can still change between minor versions; every
-change is listed in the [CHANGELOG](CHANGELOG.md), breaking ones first.
 
 ---
 
@@ -91,9 +79,113 @@ One invocation, one stage, one exit code.
 
 ---
 
+## What YAML cannot express
+
+The three problems above are about control. This one is about capability: a
+stage is a program, and a `script:` block is a string.
+
+**It reads a state and decides.** This is the one that changes what a pipeline
+is for. A gate that promotes a candidate only if it beats what is in production
+looks like this in YAML:
+
+```yaml
+- run: |
+    CURRENT=$(kubectl get isvc svc -o jsonpath='{.status.components...}' | jq -r '.')
+    BEST=$(curl -s "$TRACKER/api/runs/search" | jq '.runs[0].metrics[] | select(.key=="auc") | .value')
+    if (( $(echo "$BEST > $CURRENT" | bc -l) )); then ... ; fi
+```
+
+In Go it is two calls whose errors are handled and whose result is a decision.
+Nothing is recovered from a text stream, and nothing rests on `jq` finding the
+right path at three in the morning.
+
+**It computes over data structures.** Deploying to fifteen clusters with
+different values is a matrix in YAML, which is the cartesian product of lists of
+strings. In Go it is a slice of structs, which you build, filter and sort.
+
+**It keeps its values typed.** Four steps handing strings to each other through
+a file become four function calls handing over a struct, and the compiler checks
+the handover.
+
+**It runs under test without touching anything.** The decision is a function, so
+it is exercised without a cluster, a registry or a runner:
+
+```go
+func TestGate_RejectsWorseCandidate(t *testing.T) {
+	err := gate.Admit(Candidate{AUC: 0.84}, Champion{AUC: 0.88})
+	if err == nil {
+		t.Fatal("a worse candidate must not be promoted")
+	}
+}
+```
+
+**It survives a refactor.** Rename, extract, find all references. A
+five-hundred line YAML pipeline has none of that, which is why nobody touches
+it.
+
+This is also where the boundary with the engine stops reading as a limitation.
+The engine decides *when* a stage runs — which event, which branch, which tag —
+and that is ten lines. The stage decides what happens, and what happens can be:
+read the live state, compute the gap, apply it, wait for convergence, verify,
+and fail with a message that says what it found. One function.
+
+---
+
+## Independence from the runner
+
+The same binary runs on a laptop, on a GitHub runner, in a pod of your cluster,
+on a GitLab runner, on a Jenkins agent. It reads its configuration from the
+environment and from its flags, so the execution context is a detail.
+
+**Changing CI platform stops being a project.** Ten thousand lines of YAML
+cannot be migrated; the exit cost is counted in months. A binary is called the
+same way everywhere — you rewrite the triggers, which are the ten lines, and the
+pipeline comes with you. The pipeline outlives the platform that triggers it.
+
+**What a stage reaches is your decision, not the runner's.** An injector is a
+struct with one method, so your object storage, your artifact store and your
+secret manager are each one of them. What a stage writes then lives where you
+chose, named the way you chose, kept for as long as you chose — and readable by
+the other systems that need it, not only by the CI that produced it.
+
+That is what closes the loop with [the identity on every
+record](#what-identifies-a-run): when an artifact and the run that produced it
+are named from the same project, branch and commit, "which code is running in
+production" is a lookup rather than an investigation.
+
+---
+
+## Scope
+
+Pipeyard runs stages. It does not sequence them, and it does not try to.
+
+The CI engine keeps what it does well: the order, the conditions, the matrix,
+the artifacts in transit between jobs, the triggers. Integration tests that need
+a database
+next to them stay with its `services:` — BuildKit solves a hermetic graph, so
+there is no shared network to attach a Postgres to, and that is the engine's
+job anyway.
+
+What Pipeyard owns is the work inside a stage, and it owns it in Go: typed,
+tested, versioned, instrumented.
+
+---
+
 ## A stage
 
 ```go
+package main
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/rridane/golang-pipeyard/pi"
+	"github.com/rridane/golang-pipeyard/ru"
+	"github.com/rridane/golang-pipeyard/x/mod"
+	"go.uber.org/zap"
+)
+
 type TestStage struct{}
 
 func (s *TestStage) Configure() *pi.StageSpec {
@@ -131,6 +223,16 @@ Those parameters are filled in by injectors, matched by type.
 
 ```go
 package main
+
+import (
+	"context"
+	"time"
+
+	"github.com/rridane/golang-pipeyard/pi"
+	"github.com/rridane/golang-pipeyard/x/inj/container"
+	"github.com/rridane/golang-pipeyard/x/inj/otel"
+	"github.com/rridane/golang-pipeyard/x/inj/sys"
+)
 
 func main() {
 	pipe := pi.NewPipeline(pi.PipelineConfig{
@@ -173,104 +275,27 @@ reason. The compiler cannot catch those, so registration does.
 
 ---
 
-## Distributing the pipeline
+## Quickstart
 
-The binary is built and published once, by the repository that owns the
-pipeline. Consumer projects never build it.
-
-**Publish on release, run an image everywhere else.** A tag on the pipeline
-repository builds the binary, bakes it into an image, and pushes both. Every
-other project runs that image:
-
-```yaml
-jobs:
-  build:
-    container: docker.io/corp/ci:1
-    steps:
-      - uses: actions/checkout@v4
-      - run: corp-ci test --timeout 5m
+```bash
+mkdir corp-ci && cd corp-ci
+go mod init github.com/corp/corp-ci
+go get github.com/rridane/golang-pipeyard
 ```
 
-The CI logic now goes through the same cycle as application code: a release
-candidate you can run locally against a real project checkout, a tag, a
-changelog, and a rollback.
+Write a `main.go` like the one above, then:
 
----
-
-## Building images
-
-The container builder takes a Dockerfile and hands it to BuildKit. It does not
-reimplement the format: multi-stage builds, cache mounts, secret mounts, build
-args and wildcards in `COPY` all work because they are plain Dockerfile.
-
-```go
-func (s *BuildStage) Execute(
-	ctx context.Context,
-	args ru.ParsedArgs,
-	cb *mod.ContainerBuilder,
-) error {
-	recipe := mod.Dockerfile{
-		Args: map[string]any{"JDK": "21"},
-		Template: `
-			FROM maven:3.9-eclipse-temurin-{{.JDK}} AS builder
-			WORKDIR /src
-			COPY pom.xml .
-			RUN --mount=type=cache,target=/root/.m2 mvn -B dependency:go-offline
-			COPY src/ ./src/
-			RUN --mount=type=cache,target=/root/.m2 mvn -B verify
-
-			FROM eclipse-temurin:{{.JDK}}-jre-alpine AS runtime
-			RUN addgroup -S svc && adduser -S svc -G svc
-			WORKDIR /app
-			COPY --from=builder /src/target/*.jar /app/app.jar
-			USER svc
-			EXPOSE 8080
-			ENTRYPOINT ["java","-jar","/app/app.jar"]
-		`,
-	}
-
-	image, err := cb.Build(ctx, mod.BuildRequest{
-		Dockerfile: recipe,
-		ContextDir: ".",
-		Target:     "runtime",
-	})
-	if err != nil {
-		return err
-	}
-
-	return image.Push(ctx, "harbor.corp/payments/service:"+args.String("version"))
-}
+```bash
+go build -o corp-ci .
+./corp-ci --help
 ```
 
-`Template` is a Go string, so the recipe can be computed — and tested without
-BuildKit:
+Building container images needs a reachable BuildKit daemon:
 
-```go
-func TestRecipeRunsAsNonRoot(t *testing.T) {
-	if !strings.Contains(paymentsRecipe().Render(), "USER svc") {
-		t.Fatal("the runtime image would run as root")
-	}
-}
+```bash
+docker run -d --name buildkit --privileged -p 1234:1234 \
+  moby/buildkit --addr tcp://0.0.0.0:1234
 ```
-
-`Args` is optional. Leave it nil and `Template` is used verbatim, braces
-included.
-
-Once built, an image can go several ways:
-
-```go
-image.Push(ctx, ref)                        // to a registry
-image.PushInsecure(ctx, ref)                // registry without TLS
-image.SaveTar(ctx, ref, "./out/image.tar")  // archive for docker load
-image.ExtractTo(ctx, "/src/target/*.jar", "./dist")
-report, err := image.ReadFile(ctx, "/src/coverage.xml")
-```
-
-`ReadFile` is how a stage reads a value its build computed — a coverage report,
-a version, a manifest — without going through the host disk.
-
-The BuildKit endpoint comes from the `Endpoint` field, then `$BUILDKIT_HOST`,
-then `tcp://127.0.0.1:1234`.
 
 ---
 
@@ -361,6 +386,25 @@ func (s *ReleaseStage) Execute(ctx context.Context, args ru.ParsedArgs, run pi.I
 }
 ```
 
+### Progressive rollout
+
+Any flagging tool works, because an injector is a struct with one method.
+`x/inj/featureflag` ships one for Unleash. And the context a flag needs to
+target a subset is already in the pipeline: `pi.Identity` carries the project
+the run belongs to.
+
+```go
+func (s *VerifyStage) Execute(ctx context.Context, args ru.ParsedArgs,
+	flags *unleash.Client, run pi.Identity) error {
+
+	strict := flags.IsEnabled("strict-verify",
+		unleash.WithContext(unleashctx.Context{
+			Properties: map[string]string{"project": run.Project},
+		}))
+	...
+}
+```
+
 ---
 
 ## Layers
@@ -380,6 +424,16 @@ type Layer[C any] interface {
 needs and the compiler checks the call site:
 
 ```go
+import (
+	"context"
+
+	"github.com/rridane/golang-pipeyard/pi"
+	"github.com/rridane/golang-pipeyard/ru"
+	"github.com/rridane/golang-pipeyard/x/lay"
+	"github.com/rridane/golang-pipeyard/x/mod"
+	"go.uber.org/zap"
+)
+
 func (s *LintStage) Execute(ctx context.Context, args ru.ParsedArgs,
 	cb *mod.ContainerBuilder, log *zap.Logger) error {
 
@@ -415,6 +469,90 @@ system shell has to be present in the image.
 
 ---
 
+## Building images
+
+The container builder takes a Dockerfile and hands it to BuildKit. It does not
+reimplement the format: multi-stage builds, cache mounts, secret mounts, build
+args and wildcards in `COPY` all work because they are plain Dockerfile.
+
+```go
+import (
+	"context"
+
+	"github.com/rridane/golang-pipeyard/ru"
+	"github.com/rridane/golang-pipeyard/x/mod"
+)
+
+func (s *BuildStage) Execute(
+	ctx context.Context,
+	args ru.ParsedArgs,
+	cb *mod.ContainerBuilder,
+) error {
+	recipe := mod.Dockerfile{
+		Args: map[string]any{"JDK": "21"},
+		Template: `
+			FROM maven:3.9-eclipse-temurin-{{.JDK}} AS builder
+			WORKDIR /src
+			COPY pom.xml .
+			RUN --mount=type=cache,target=/root/.m2 mvn -B dependency:go-offline
+			COPY src/ ./src/
+			RUN --mount=type=cache,target=/root/.m2 mvn -B verify
+
+			FROM eclipse-temurin:{{.JDK}}-jre-alpine AS runtime
+			RUN addgroup -S svc && adduser -S svc -G svc
+			WORKDIR /app
+			COPY --from=builder /src/target/*.jar /app/app.jar
+			USER svc
+			EXPOSE 8080
+			ENTRYPOINT ["java","-jar","/app/app.jar"]
+		`,
+	}
+
+	image, err := cb.Build(ctx, mod.BuildRequest{
+		Dockerfile: recipe,
+		ContextDir: ".",
+		Target:     "runtime",
+	})
+	if err != nil {
+		return err
+	}
+
+	return image.Push(ctx, "harbor.corp/payments/service:"+args.String("version"))
+}
+```
+
+`Template` is a Go string, so the recipe can be computed — and tested without
+BuildKit:
+
+```go
+func TestRecipeRunsAsNonRoot(t *testing.T) {
+	if !strings.Contains(paymentsRecipe().Render(), "USER svc") {
+		t.Fatal("the runtime image would run as root")
+	}
+}
+```
+
+`Args` is optional. Leave it nil and `Template` is used verbatim, braces
+included.
+
+Once built, an image can go several ways:
+
+```go
+image.Push(ctx, ref)                        // to a registry
+image.PushInsecure(ctx, ref)                // registry without TLS
+image.SaveTar(ctx, ref, "./out/image.tar")  // archive for docker load
+image.ExtractTo(ctx, "/src/target/*.jar", "./dist")
+report, err := image.ReadFile(ctx, "/src/coverage.xml")
+```
+
+`ReadFile` is how a stage reads a value its build computed — a coverage report,
+a version, a manifest — without going through the host disk.
+
+The BuildKit endpoint comes from the `Endpoint` field, then `$BUILDKIT_HOST`,
+then `tcp://127.0.0.1:1234`.
+
+---
+
 ## What the binary depends on
 
 Every `sh.Run` is a dependency on whatever happens to be installed on the
@@ -424,14 +562,15 @@ runner. Every injector is not:
 |---|---|
 | `HelmInjector` | the Helm Go library — no `helm` binary |
 | `K8sInjector` | client-go — no `kubectl` |
-| `ContainerBuilder` | gRPC to BuildKit — no Docker CLI |
+| `ContainerBuilderInjector` | gRPC to BuildKit — no Docker CLI |
 | `TerraformInjector` | `exec.LookPath("terraform")` — **needs the binary** |
-| `ShellExecutor` | runs whatever you name |
+| `ShellExecutorInjector` | runs whatever you name |
 
-The injectors are what makes the binary self-sufficient. A pipeline written with injectors alone is one static
-executable with nothing to install around it, and a plain download is enough to
-ship it. A pipeline that leans on `sh.Run` needs an image that carries its
-tools.
+The injectors are what make the binary self-sufficient. A pipeline written with
+injectors alone is one static executable, and a plain download is enough to ship
+it. `ContainerBuilderInjector` is the one that still needs something reachable —
+a BuildKit daemon — though nothing installed beside the binary. A pipeline that
+leans on `sh.Run` needs an image that carries its tools.
 
 Worth knowing before choosing how to distribute: the shell is the escape hatch,
 and it costs hermeticity. `TerraformInjector` is the one injector that breaks
@@ -508,20 +647,19 @@ mapping its variables onto them belongs in that engine's configuration, not in
 Go — which is why no package here names an engine. On GitHub Actions:
 
 ```yaml
-jobs:
-  build:
-    env:
-      PIPEYARD_PROJECT: ${{ github.repository }}
-      PIPEYARD_BRANCH: ${{ github.ref_name }}
-      PIPEYARD_COMMIT_SHA: ${{ github.sha }}
-    steps:
-      - uses: actions/checkout@v4
-      # GitHub exposes no commit timestamp.
-      - run: echo "PIPEYARD_COMMIT_TIME=$(git log -1 --format=%cI)" >> "$GITHUB_ENV"
+env:
+  PIPEYARD_PROJECT: ${{ github.repository }}
+  PIPEYARD_BRANCH: ${{ github.ref_name }}
+  PIPEYARD_COMMIT_SHA: ${{ github.sha }}
+  # Absent on a pull request, where no deployment is measured from it.
+  PIPEYARD_COMMIT_TIME: ${{ github.event.head_commit.timestamp }}
+  # Read as a value, never interpolated into a shell, and only its first line
+  # is kept.
+  PIPEYARD_COMMIT_TITLE: ${{ github.event.head_commit.message }}
 ```
 
-On GitLab the same four come from `CI_PROJECT_PATH`, `CI_COMMIT_REF_NAME`,
-`CI_COMMIT_SHA` and `CI_COMMIT_TIMESTAMP`.
+On GitLab the same five come from `CI_PROJECT_PATH`, `CI_COMMIT_REF_NAME`,
+`CI_COMMIT_SHA`, `CI_COMMIT_TIMESTAMP` and `CI_COMMIT_TITLE`.
 
 ### What the collector must do
 
@@ -575,7 +713,7 @@ rollback:
 |---|---|
 | **Deployment frequency** | `sum(rate(stage_runs_total{stage="deploy",status="success",flag_env="production"}[7d]))` |
 | **Change failure rate** | `stage_runs_total{stage="verify",status="error"} / stage_runs_total{stage="verify"}` — a failed verify is a degradation in production, which is the DORA definition and not a proxy |
-| **Lead time for changes** | from the traces: `commit_time` on the span, against the end of a successful `deploy`. GitLab exposes `CI_COMMIT_TIMESTAMP`; on GitHub Actions set `PIPEYARD_COMMIT_TIME` yourself |
+| **Lead time for changes** | from the traces: `commit_time` on the span, against the end of a successful `deploy` — `CI_COMMIT_TIMESTAMP` on GitLab, `github.event.head_commit.timestamp` on GitHub |
 | **Time to restore service** | the gap between a failed `verify` and the next successful `deploy` or `rollback`. Not an incident MTTR — the restore time as the pipeline sees it |
 
 One metric for free, four for a pipeline that names its steps. And none of the
@@ -592,137 +730,27 @@ binary end up in one distributed trace — build, test and deploy under one root
 
 ---
 
-## Quickstart
+## Distributing the pipeline
 
-```bash
-mkdir corp-ci && cd corp-ci
-go mod init github.com/corp/corp-ci
-go get github.com/rridane/golang-pipeyard
-```
+The binary is built and published once, by the repository that owns the
+pipeline. Consumer projects never build it.
 
-Write a `main.go` like the one above, then:
-
-```bash
-go build -o corp-ci .
-./corp-ci --help
-```
-
-Building container images needs a reachable BuildKit daemon:
-
-```bash
-docker run -d --name buildkit --privileged -p 1234:1234 \
-  moby/buildkit --addr tcp://0.0.0.0:1234
-```
-
-Publish the binary as a release, and your projects fetch it:
+**Publish on release, run an image everywhere else.** A tag on the pipeline
+repository builds the binary, bakes it into an image, and pushes both. Every
+other project runs that image:
 
 ```yaml
-before_script:
-  - curl -sSL -o /usr/local/bin/corp-ci https://.../releases/download/v1.4.0/corp-ci
-  - chmod +x /usr/local/bin/corp-ci
-```
-
----
-
-## Pipeyard builds Pipeyard
-
-The shortest way to judge what this changes is to read this repository's own
-CI, because it happens to be both things at once: a Go project whose code is
-checked by a pipeline, and the repository that owns that pipeline. In an
-organisation those are two different repositories, and the two workflow files
-are named after them:
-
-| | |
-|---|---|
-| [`consumer_repo.yml`](.github/workflows/consumer_repo.yml) | what a project that *uses* a pipeline writes |
-| [`pipeline_builder_repo.yml`](.github/workflows/pipeline_builder_repo.yml) | what the repository that *owns* it writes |
-
-Here they are one repository, which is the only thing about this setup not to
-copy. Everything else is what your two would hold.
-
-### The consumer side
-
-`ci/` is this repository's own pipeline, written with the framework: one file
-per stage, one file for registration. `consumer_repo.yml` is the whole of what
-a project writes to run it:
-
-```yaml
-- name: Fetch the published pipeline
-  run: |
-    curl -fsSL -o bin/pipeyard-ci \
-      "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/pipeyard-ci"
-    chmod +x bin/pipeyard-ci
-
-- run: bin/pipeyard-ci build
-- run: bin/pipeyard-ci fmt
-- run: bin/pipeyard-ci vet
-- run: bin/pipeyard-ci test --timeout 5m
-```
-
-Four stage calls, and the rest of the file fetches the binary. What matters is
-not that it is short: it is that none of the three problems above can reach it
-any more. There is no logic in it to drift, nothing in it that a test could
-have caught, and the version it runs is one line.
-
-Adding a stage, changing a flag or fixing a check happens in Go, under test,
-and runs the same way on a laptop:
-
-```bash
-go build -o bin/pipeyard-ci ./ci
-bin/pipeyard-ci build
-bin/pipeyard-ci fmt
-bin/pipeyard-ci test --pkg ./pi/ --race=false
-bin/pipeyard-ci lint                        # golangci-lint in a container
-bin/pipeyard-ci release --version 0.1.0     # builds its own distribution image
-```
-
-No push, no failed job, no second push.
-
-The published pipeline is what judges a change here too: a known-good binary,
-not the one this commit may have broken. A broken change to `ci/` then fails on
-its own, instead of taking the verdict on the Go code down with it.
-
-A second job runs the published **image** instead of the binary, for a project
-that would rather install nothing. It follows the floating major tag, which is
-`0` until the 1.0.0 release. It is the only place a stage runs inside the
-container, so the only place that catches what breaks there and nowhere else.
-The image runs as uid 1001, which is what a runner owns the mounted workspace
-with, so no step needs root.
-
-### The pipeline repository
-
-This is the half that is new, and it is the point. One repository owns the
-pipelines of an organisation. It holds the stages, the layers and their tests,
-and it releases them the way a library is released: a version, a tag, a
-changelog, a rollback. The projects hold none of it — they call a binary.
-
-What moves is where the logic lives. A check shared by forty projects stops
-being forty copies that drift and becomes one function with a test around it.
-Changing it is a pull request on a Go file, reviewed and released, instead of a
-sweep across forty YAML files that nobody dares to finish.
-
-`pipeline_builder_repo.yml` is what that repository runs, and it has two duties
-no consumer has. One compiles the pipeline this commit produces and runs it
-once:
-
-```yaml
-  pipeline:
+jobs:
+  build:
+    container: docker.io/corp/ci:1
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          go build -o bin/pipeyard-ci ./ci
-          bin/pipeyard-ci vet
+      - run: corp-ci test --timeout 5m
 ```
 
-That a change to `ci/` compiles is already settled by the consumer jobs, which
-run `go build` and `go vet` over the whole tree. What only this job catches is a
-stage that compiles and then misbehaves — a wrong flag passed to `go test`
-would otherwise ship and be found by whoever upgrades first.
-
-The other publishes, on a tag, and builds from source on purpose. The release
-logic is part of what a commit can change: releasing with the previous binary
-would bake the previous recipe into the image, and a fix to the release stage
-could never land.
+The CI logic now goes through the same cycle as application code: a release
+candidate you can run locally against a real project checkout, a tag, a
+changelog, and a rollback.
 
 ---
 
@@ -784,18 +812,105 @@ what a project has to react to before moving its floating tag.
 
 ---
 
-## Scope
+## Pipeyard builds Pipeyard
 
-Pipeyard runs stages. It does not sequence them, and it does not try to.
+The shortest way to judge what this changes is to read this repository's own
+CI, because it happens to be both things at once: a Go project whose code is
+checked by a pipeline, and the repository that owns that pipeline. In an
+organisation those are two different repositories, and the two workflow files
+are named after them:
 
-The CI engine keeps what it does well: the order, the conditions, the matrix,
-the artifacts between jobs, the triggers. Integration tests that need a database
-next to them stay with its `services:` — BuildKit solves a hermetic graph, so
-there is no shared network to attach a Postgres to, and that is the engine's
-job anyway.
+| | |
+|---|---|
+| [`consumer_repo.yml`](.github/workflows/consumer_repo.yml) | what a project that *uses* a pipeline writes |
+| [`pipeline_builder_repo.yml`](.github/workflows/pipeline_builder_repo.yml) | what the repository that *owns* it writes |
 
-What Pipeyard owns is the work inside a stage, and it owns it in Go: typed,
-tested, versioned, instrumented.
+Here they are one repository, which is the only thing about this setup not to
+copy. Everything else is what your two would hold.
+
+### The consumer side
+
+`ci/` is this repository's own pipeline, written with the framework: one file
+per stage, one file for registration. `consumer_repo.yml` is the whole of what
+a project writes to run it:
+
+```yaml
+- name: Fetch the published pipeline
+  run: |
+    curl -fsSL -o bin/pipeyard-ci \
+      "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/pipeyard-ci"
+    chmod +x bin/pipeyard-ci
+
+- run: bin/pipeyard-ci build
+- run: bin/pipeyard-ci fmt
+- run: bin/pipeyard-ci vet
+- run: bin/pipeyard-ci test --timeout 5m
+```
+
+Four stage calls. The rest of the file is the engine's half: the triggers, the
+mapping of GitHub's variable names onto Pipeyard's, and a second job that runs
+the same stages from the published image. What matters is not that it is short:
+it is that none of the three problems above can reach it any more. There is no
+logic in it to drift, nothing in it that a test could have caught, and the
+version it runs is one line.
+
+Adding a stage, changing a flag or fixing a check happens in Go, under test,
+and runs the same way on a laptop:
+
+```bash
+go build -o bin/pipeyard-ci ./ci
+bin/pipeyard-ci build
+bin/pipeyard-ci fmt
+bin/pipeyard-ci test --pkg ./pi/ --race=false
+bin/pipeyard-ci lint                        # golangci-lint in a container
+bin/pipeyard-ci release --version 0.1.0     # builds its own distribution image
+```
+
+No push, no failed job, no second push.
+
+The published pipeline is what judges a change here too: a known-good binary,
+not the one this commit may have broken. A broken change to `ci/` then fails on
+its own, instead of taking the verdict on the Go code down with it.
+
+A second job runs the published **image** instead of the binary, for a project
+that would rather install nothing. It follows the floating major tag, which is
+`0` until the 1.0.0 release. It is the only place a stage runs inside the
+container, so the only place that catches what breaks there and nowhere else.
+The image runs as uid 1001, which is what a runner owns the mounted workspace
+with, so no step needs root.
+
+### The pipeline repository
+
+This is the half that is new, and it is the point. One repository owns the
+pipelines of an organisation. It holds the stages, the layers and their tests,
+and it releases them the way a library is released: a version, a tag, a
+changelog, a rollback. The projects hold none of it — they call a binary.
+
+What moves is where the logic lives: a check shared by forty projects becomes
+one function with a test around it.
+
+`pipeline_builder_repo.yml` is what that repository runs, and it has two duties
+no consumer has. One compiles the pipeline this commit produces and runs it
+once:
+
+```yaml
+  pipeline:
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          go build -o bin/pipeyard-ci ./ci
+          bin/pipeyard-ci vet
+```
+
+That a change to `ci/` compiles is already settled by the consumer jobs, which
+run `go build` and `go vet` over the whole tree. What only this job catches is a
+stage that compiles and then misbehaves — a wrong flag passed to `go test`
+would otherwise ship and be found by whoever upgrades first.
+
+The other publishes, on a tag, and builds from source on purpose. The release
+logic is part of what a commit can change: releasing with the previous binary
+would bake the previous recipe into the image, and a fix to the release stage
+could never land.
 
 ---
 
