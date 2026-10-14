@@ -1,6 +1,7 @@
 package python
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -46,17 +47,20 @@ func (s *LintStage) Execute(
 	cb *mod.ContainerBuilder,
 	log *zap.Logger,
 ) error {
-	workspace, err := stack.NewWorkspace(ctx, sh, s.outDir())
+	workspace, err := stack.NewWorkspace(ctx, sh, cmp.Or(s.OutDir, stack.DefaultOutDir))
 	if err != nil {
 		return err
 	}
 
-	paths := s.paths()
+	paths := s.Paths
+	if len(paths) == 0 {
+		paths = []string{"."}
+	}
 
 	result, err := stack.Tool{
 		Name:   "lint",
-		Image:  s.image(),
-		Setup:  "RUN pip install --no-cache-dir ruff==" + s.ruffVersion(),
+		Image:  cmp.Or(s.Image, DefaultImage),
+		Setup:  "RUN pip install --no-cache-dir ruff==" + cmp.Or(s.RuffVersion, DefaultRuffVersion),
 		Script: s.script(paths),
 	}.Run(ctx, cb, workspace)
 	if err != nil {
@@ -77,43 +81,11 @@ func (s *LintStage) Execute(
 // script asks ruff not to cache: the cache would be written into the image
 // layer and thrown away with it.
 func (s *LintStage) script(paths []string) string {
-	quoted := make([]string, 0, len(paths))
-	for _, p := range paths {
-		quoted = append(quoted, stack.Quote(p))
-	}
-	targets := strings.Join(quoted, " ")
+	targets := stack.QuoteAll(paths)
 
 	script := new(stack.Script).Step("ruff check --no-cache %s", targets)
 	if !s.SkipFormat {
 		script.Step("ruff format --check --no-cache %s", targets)
 	}
 	return script.String()
-}
-
-func (s *LintStage) paths() []string {
-	if len(s.Paths) == 0 {
-		return []string{"."}
-	}
-	return s.Paths
-}
-
-func (s *LintStage) outDir() string {
-	if s.OutDir == "" {
-		return stack.DefaultOutDir
-	}
-	return s.OutDir
-}
-
-func (s *LintStage) ruffVersion() string {
-	if s.RuffVersion == "" {
-		return DefaultRuffVersion
-	}
-	return s.RuffVersion
-}
-
-func (s *LintStage) image() string {
-	if s.Image == "" {
-		return DefaultImage
-	}
-	return s.Image
 }

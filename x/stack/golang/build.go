@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -21,7 +22,7 @@ type BuildStage struct {
 func (s *BuildStage) Configure() *pi.StageSpec {
 	spec := pi.NewStageSpec("build")
 	spec.SetDescription("Compile every package")
-	spec.AddFlag("pkg", ru.StringFlag, "packages to compile", s.packages(), false)
+	spec.AddFlag("pkg", ru.StringFlag, "packages to compile", cmp.Or(s.Packages, DefaultPackages), false)
 	return spec
 }
 
@@ -43,11 +44,4 @@ func (s *BuildStage) Execute(
 // test reaches it without compiling anything.
 func (s *BuildStage) command(args ru.ParsedArgs) string {
 	return fmt.Sprintf("go build %s", args.String("pkg"))
-}
-
-func (s *BuildStage) packages() string {
-	if s.Packages == "" {
-		return DefaultPackages
-	}
-	return s.Packages
 }

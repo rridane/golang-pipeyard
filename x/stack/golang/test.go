@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -31,9 +32,9 @@ type TestStage struct {
 func (s *TestStage) Configure() *pi.StageSpec {
 	spec := pi.NewStageSpec("test")
 	spec.SetDescription("Run the test suite")
-	spec.AddFlag("pkg", ru.StringFlag, "packages to test", s.packages(), false)
+	spec.AddFlag("pkg", ru.StringFlag, "packages to test", cmp.Or(s.Packages, DefaultPackages), false)
 	spec.AddFlag("race", ru.BoolFlag, "enable the race detector", !s.WithoutRace, false)
-	spec.AddFlag("timeout", ru.DurationFlag, "test timeout", s.timeout(), false)
+	spec.AddFlag("timeout", ru.DurationFlag, "test timeout", cmp.Or(s.Timeout, DefaultTimeout), false)
 	return spec
 }
 
@@ -60,18 +61,4 @@ func (s *TestStage) command(args ru.ParsedArgs) string {
 	}
 
 	return fmt.Sprintf("go test %s %s", flags, args.String("pkg"))
-}
-
-func (s *TestStage) packages() string {
-	if s.Packages == "" {
-		return DefaultPackages
-	}
-	return s.Packages
-}
-
-func (s *TestStage) timeout() string {
-	if s.Timeout == "" {
-		return DefaultTimeout
-	}
-	return s.Timeout
 }

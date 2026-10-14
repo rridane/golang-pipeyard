@@ -8,6 +8,7 @@ import (
 	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/ru"
 	"github.com/rridane/golang-pipeyard/x/mod"
+	"github.com/rridane/golang-pipeyard/x/stack"
 	"go.uber.org/zap"
 )
 
@@ -33,7 +34,10 @@ func (s *FormatStage) Execute(
 	sh *mod.ShellExecutor,
 	log *zap.Logger,
 ) error {
-	paths := s.paths()
+	paths := s.Paths
+	if len(paths) == 0 {
+		paths = []string{"."}
+	}
 
 	out, err := sh.Output(ctx, s.command(paths))
 	if err != nil {
@@ -52,12 +56,5 @@ func (s *FormatStage) Execute(
 }
 
 func (s *FormatStage) command(paths []string) string {
-	return "gofmt -l " + strings.Join(paths, " ")
-}
-
-func (s *FormatStage) paths() []string {
-	if len(s.Paths) == 0 {
-		return []string{"."}
-	}
-	return s.Paths
+	return "gofmt -l " + stack.QuoteAll(paths)
 }

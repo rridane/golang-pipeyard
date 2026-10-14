@@ -45,12 +45,15 @@ func TestVetStage_Command(t *testing.T) {
 	}
 }
 
-// gofmt takes the directories one after another, and a repository that names
-// several is the reason this is not a single string.
+// gofmt takes the directories one after another, and each is quoted: a
+// directory with a space in its name would otherwise be read as two.
 func TestFormatStage_Command(t *testing.T) {
 	stage := &FormatStage{}
 
-	if got, want := stage.command([]string{"pi", "ru", "x"}), "gofmt -l pi ru x"; got != want {
+	if got, want := stage.command([]string{"pi", "ru", "x"}), "gofmt -l 'pi' 'ru' 'x'"; got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if got, want := stage.command([]string{"my sources"}), "gofmt -l 'my sources'"; got != want {
 		t.Errorf("got %q, want %q", got, want)
 	}
 }

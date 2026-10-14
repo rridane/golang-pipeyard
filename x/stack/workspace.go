@@ -70,8 +70,8 @@ func (w Workspace) Generated(name string) (host, inContainer string, err error) 
 	return host, path.Join(ContainerRoot, generatedDir, name), nil
 }
 
-// Write adds a generated file and returns the path the container will see.
-func (w Workspace) Write(name string, content []byte) (inContainer string, err error) {
+// write adds a generated file and returns the path the container will see.
+func (w Workspace) write(name string, content []byte) (inContainer string, err error) {
 	host, inContainer, err := w.Generated(name)
 	if err != nil {
 		return "", err

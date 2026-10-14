@@ -1,6 +1,7 @@
 package python
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -45,17 +46,20 @@ func (s *LockStage) Execute(
 	cb *mod.ContainerBuilder,
 	log *zap.Logger,
 ) error {
-	workspace, err := stack.NewWorkspace(ctx, sh, s.outDir())
+	workspace, err := stack.NewWorkspace(ctx, sh, cmp.Or(s.OutDir, stack.DefaultOutDir))
 	if err != nil {
 		return err
 	}
 
-	projects := s.projects()
+	projects := s.Projects
+	if len(projects) == 0 {
+		projects = []string{"."}
+	}
 
 	result, err := stack.Tool{
 		Name:   "lock-check",
-		Image:  s.image(),
-		Setup:  "RUN pip install --no-cache-dir uv==" + s.uvVersion(),
+		Image:  cmp.Or(s.Image, DefaultImage),
+		Setup:  "RUN pip install --no-cache-dir uv==" + cmp.Or(s.UvVersion, DefaultUvVersion),
 		Script: s.script(projects),
 	}.Run(ctx, cb, workspace)
 	if err != nil {
@@ -84,32 +88,4 @@ func (s *LockStage) script(projects []string) string {
 		script.Step("uv lock --check --directory %s", stack.Quote(project))
 	}
 	return script.String()
-}
-
-func (s *LockStage) projects() []string {
-	if len(s.Projects) == 0 {
-		return []string{"."}
-	}
-	return s.Projects
-}
-
-func (s *LockStage) outDir() string {
-	if s.OutDir == "" {
-		return stack.DefaultOutDir
-	}
-	return s.OutDir
-}
-
-func (s *LockStage) uvVersion() string {
-	if s.UvVersion == "" {
-		return DefaultUvVersion
-	}
-	return s.UvVersion
-}
-
-func (s *LockStage) image() string {
-	if s.Image == "" {
-		return DefaultImage
-	}
-	return s.Image
 }

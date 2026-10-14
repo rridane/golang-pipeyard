@@ -36,10 +36,6 @@ type Tool struct {
 type Result struct {
 	Output   string
 	ExitCode int
-
-	// Artifact is the image the run produced, for a stage that reads a file
-	// back out of it.
-	Artifact *mod.Artifact
 }
 
 // Failed reports a non-zero exit. On its own that is not an error: a linter
@@ -63,7 +59,7 @@ func (t Tool) mounts() string {
 // always succeeds and records the exit code beside the output, because a
 // failing BuildKit step keeps its own output out of reach.
 func (t Tool) Run(ctx context.Context, cb *mod.ContainerBuilder, w Workspace) (Result, error) {
-	script, err := w.Write(t.Name+".sh", []byte("set -u\n"+t.Script))
+	script, err := w.write(t.Name+".sh", []byte("set -u\n"+t.Script))
 	if err != nil {
 		return Result{}, fmt.Errorf("%s: write the script: %w", t.Name, err)
 	}
@@ -100,8 +96,6 @@ func (t Tool) Run(ctx context.Context, cb *mod.ContainerBuilder, w Workspace) (R
 	if err != nil {
 		return Result{}, fmt.Errorf("%s: %w", t.Name, err)
 	}
-	result.Artifact = artifact
-
 	return result, nil
 }
 

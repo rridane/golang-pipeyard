@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -40,15 +41,18 @@ func (s *LintStage) Execute(
 	cb *mod.ContainerBuilder,
 	log *zap.Logger,
 ) error {
-	workspace, err := stack.NewWorkspace(ctx, sh, s.outDir())
+	image := cmp.Or(s.Image, DefaultLinterImage)
+	packages := cmp.Or(s.Packages, DefaultPackages)
+
+	workspace, err := stack.NewWorkspace(ctx, sh, cmp.Or(s.OutDir, stack.DefaultOutDir))
 	if err != nil {
 		return err
 	}
 
 	result, err := stack.Tool{
 		Name:   "lint",
-		Image:  s.image(),
-		Script: "golangci-lint run " + s.packages() + "\n",
+		Image:  image,
+		Script: "golangci-lint run " + packages + "\n",
 		// The paths come from `go env` and `golangci-lint cache status` inside
 		// the image: a cache mounted anywhere else is never read, and nothing
 		// says so. The last one holds the analysis and pays most.
@@ -66,30 +70,9 @@ func (s *LintStage) Execute(
 		fmt.Println(result.Output)
 	}
 	if result.Failed() {
-		return fmt.Errorf("the linter found something in %s", s.packages())
+		return fmt.Errorf("the linter found something in %s", packages)
 	}
 
-	log.Info("linter found nothing", zap.String("image", s.image()))
+	log.Info("linter found nothing", zap.String("image", image))
 	return nil
-}
-
-func (s *LintStage) outDir() string {
-	if s.OutDir == "" {
-		return stack.DefaultOutDir
-	}
-	return s.OutDir
-}
-
-func (s *LintStage) image() string {
-	if s.Image == "" {
-		return DefaultLinterImage
-	}
-	return s.Image
-}
-
-func (s *LintStage) packages() string {
-	if s.Packages == "" {
-		return DefaultPackages
-	}
-	return s.Packages
 }

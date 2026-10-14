@@ -1,6 +1,7 @@
 package common
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -22,12 +23,8 @@ const scannerBinary = "/osv-scanner"
 
 // AuditStage looks the repository's locked dependencies up in the OSV
 // database. It reads the lockfiles rather than the installed packages, so it
-// answers for what a build would install and not for what this machine
-// happens to have.
-//
-// Which lockfiles is the scanner's business: uv.lock, go.sum,
-// package-lock.json and the rest are found in the same pass, so the stage is
-// language-agnostic without knowing it.
+// answers for what a build would install. Which lockfiles is the scanner's
+// business — uv.lock, go.sum and the rest are found in the same pass.
 type AuditStage struct {
 	// OutDir is where the stage may write. Empty uses stack.DefaultOutDir.
 	OutDir string
@@ -40,8 +37,7 @@ type AuditStage struct {
 	Image string
 
 	// WarnOnly reports the advisories and succeeds. An advisory is not always
-	// actionable the day it is published, and a repository that fails on
-	// every one of them is a repository whose pipeline gets bypassed.
+	// actionable the day it is published.
 	WarnOnly bool
 }
 
@@ -70,16 +66,19 @@ func (s *AuditStage) Execute(
 	cb *mod.ContainerBuilder,
 	log *zap.Logger,
 ) error {
-	workspace, err := stack.NewWorkspace(ctx, sh, s.outDir())
+	workspace, err := stack.NewWorkspace(ctx, sh, cmp.Or(s.OutDir, stack.DefaultOutDir))
 	if err != nil {
 		return err
 	}
 
-	paths := s.paths()
+	paths := s.Paths
+	if len(paths) == 0 {
+		paths = []string{"."}
+	}
 
 	result, err := stack.Tool{
 		Name:   "audit",
-		Image:  s.image(),
+		Image:  cmp.Or(s.Image, DefaultScannerImage),
 		Script: s.script(paths),
 	}.Run(ctx, cb, workspace)
 	if err != nil {
@@ -108,23 +107,15 @@ func (s *AuditStage) Execute(
 	}
 }
 
-// script writes the report to a file and prints that file, because the
-// scanner narrates its walk on stderr and the stage's output has to be JSON
-// and nothing else.
-//
-// The scanner's exit code is left aside: the report is what says how many
-// advisories there are, and a report that will not parse is what says the
-// scanner never ran.
+// script writes the report to a file and prints it, because the scanner
+// narrates its walk on stderr and the output has to be JSON and nothing else.
+// The exit code is left aside: the report says how many advisories there are,
+// and a report that will not parse says the scanner never ran.
 func (s *AuditStage) script(paths []string) string {
-	quoted := make([]string, 0, len(paths))
-	for _, p := range paths {
-		quoted = append(quoted, stack.Quote(p))
-	}
-
 	return fmt.Sprintf(
 		"%s scan source --recursive %s --format json --output-file /tmp/report.json 2>/dev/null\n"+
 			"cat /tmp/report.json\n",
-		scannerBinary, strings.Join(quoted, " "))
+		scannerBinary, stack.QuoteAll(paths))
 }
 
 // parseAdvisories flattens the scanner's report, which nests a lockfile, the
@@ -167,25 +158,4 @@ func parseAdvisories(raw []byte) ([]Advisory, error) {
 		}
 	}
 	return advisories, nil
-}
-
-func (s *AuditStage) paths() []string {
-	if len(s.Paths) == 0 {
-		return []string{"."}
-	}
-	return s.Paths
-}
-
-func (s *AuditStage) outDir() string {
-	if s.OutDir == "" {
-		return stack.DefaultOutDir
-	}
-	return s.OutDir
-}
-
-func (s *AuditStage) image() string {
-	if s.Image == "" {
-		return DefaultScannerImage
-	}
-	return s.Image
 }

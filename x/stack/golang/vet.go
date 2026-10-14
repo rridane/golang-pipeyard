@@ -1,6 +1,7 @@
 package golang
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 
@@ -20,7 +21,7 @@ type VetStage struct {
 func (s *VetStage) Configure() *pi.StageSpec {
 	spec := pi.NewStageSpec("vet")
 	spec.SetDescription("Run go vet on every package")
-	spec.AddFlag("pkg", ru.StringFlag, "packages to examine", s.packages(), false)
+	spec.AddFlag("pkg", ru.StringFlag, "packages to examine", cmp.Or(s.Packages, DefaultPackages), false)
 	return spec
 }
 
@@ -42,11 +43,4 @@ func (s *VetStage) Execute(
 // test reaches it without running vet.
 func (s *VetStage) command(args ru.ParsedArgs) string {
 	return fmt.Sprintf("go vet %s", args.String("pkg"))
-}
-
-func (s *VetStage) packages() string {
-	if s.Packages == "" {
-		return DefaultPackages
-	}
-	return s.Packages
 }

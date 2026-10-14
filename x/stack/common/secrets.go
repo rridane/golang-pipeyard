@@ -1,6 +1,7 @@
 package common
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,9 @@ import (
 	"github.com/rridane/golang-pipeyard/x/stack"
 	"go.uber.org/zap"
 )
+
+// defaultIgnorePath is where the scanner looks for the accepted findings.
+const defaultIgnorePath = ".gitleaksignore"
 
 // SecretsStage looks for secrets in the whole history, not only the checkout:
 // a credential removed in a later commit is still readable by anyone who
@@ -57,7 +61,7 @@ func (s *SecretsStage) Execute(
 	cb *mod.ContainerBuilder,
 	log *zap.Logger,
 ) error {
-	workspace, err := stack.NewWorkspace(ctx, sh, s.outDir())
+	workspace, err := stack.NewWorkspace(ctx, sh, cmp.Or(s.OutDir, stack.DefaultOutDir))
 	if err != nil {
 		return err
 	}
@@ -75,7 +79,7 @@ func (s *SecretsStage) Execute(
 
 	result, err := stack.Tool{
 		Name:   "secrets",
-		Image:  s.image(),
+		Image:  cmp.Or(s.Image, DefaultGitleaksImage),
 		Script: s.script(bundle),
 	}.Run(ctx, cb, workspace)
 	if err != nil {
@@ -112,26 +116,5 @@ func (s *SecretsStage) script(bundle string) string {
 			"--gitleaks-ignore-path %s "+
 			"--report-format json --report-path /tmp/report.json >/dev/null 2>&1 && "+
 			"cat /tmp/report.json\n",
-		stack.Quote(bundle), stack.Quote(s.ignorePath()))
-}
-
-func (s *SecretsStage) outDir() string {
-	if s.OutDir == "" {
-		return stack.DefaultOutDir
-	}
-	return s.OutDir
-}
-
-func (s *SecretsStage) ignorePath() string {
-	if s.IgnorePath == "" {
-		return ".gitleaksignore"
-	}
-	return s.IgnorePath
-}
-
-func (s *SecretsStage) image() string {
-	if s.Image == "" {
-		return DefaultGitleaksImage
-	}
-	return s.Image
+		stack.Quote(bundle), stack.Quote(cmp.Or(s.IgnorePath, defaultIgnorePath)))
 }
