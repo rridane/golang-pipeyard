@@ -2,18 +2,18 @@ package main
 
 import (
 	"testing"
-	"time"
 
 	"github.com/rridane/golang-pipeyard/pi"
 	"github.com/rridane/golang-pipeyard/ru"
+	"github.com/rridane/golang-pipeyard/x/stack/golang"
 )
 
 // Every stage this pipeline registers. A stage missing from here is a stage
 // nothing checks.
 func stages() []pi.Stage {
 	return []pi.Stage{
-		&BuildStage{}, &FormatStage{}, &VetStage{},
-		&TestStage{}, &LintStage{}, &ReleaseStage{}, &PublishStage{},
+		&golang.BuildStage{}, &golang.FormatStage{}, &golang.VetStage{},
+		&golang.TestStage{}, &golang.LintStage{}, &ReleaseStage{}, &PublishStage{},
 	}
 }
 
@@ -56,11 +56,11 @@ func TestStages_Flags(t *testing.T) {
 		fallback any
 		required bool
 	}{
-		{&TestStage{}, "pkg", ru.StringFlag, "./...", false},
-		{&TestStage{}, "race", ru.BoolFlag, true, false},
-		{&TestStage{}, "timeout", ru.DurationFlag, "5m", false},
-		{&BuildStage{}, "pkg", ru.StringFlag, "./...", false},
-		{&LintStage{}, "image", ru.StringFlag, "golangci/golangci-lint:v1.62-alpine", false},
+		{&golang.TestStage{}, "pkg", ru.StringFlag, "./...", false},
+		{&golang.TestStage{}, "race", ru.BoolFlag, true, false},
+		{&golang.TestStage{}, "timeout", ru.DurationFlag, "5m", false},
+		{&golang.BuildStage{}, "pkg", ru.StringFlag, "./...", false},
+		{&golang.VetStage{}, "pkg", ru.StringFlag, "./...", false},
 		{&ReleaseStage{}, "version", ru.StringFlag, "", true},
 		{&ReleaseStage{}, "image", ru.StringFlag, "ghcr.io/rridane/pipeyard", false},
 		{&ReleaseStage{}, "push", ru.BoolFlag, false, false},
@@ -83,32 +83,6 @@ func TestStages_Flags(t *testing.T) {
 		if flag.Required != tc.required {
 			t.Errorf("%s --%s: required %v, want %v", stage.Command(), tc.flag, flag.Required, tc.required)
 		}
-	}
-}
-
-func TestTestScript(t *testing.T) {
-	args := ru.ParsedArgs{}
-	args.SetString("pkg", "./pi/")
-	args.SetBool("race", true)
-	args.SetDuration("timeout", 5*time.Minute)
-
-	if got, want := testScript(args), "go test -timeout 5m0s -race ./pi/"; got != want {
-		t.Errorf("got %q, want %q", got, want)
-	}
-
-	args.SetBool("race", false)
-
-	if got, want := testScript(args), "go test -timeout 5m0s ./pi/"; got != want {
-		t.Errorf("without the race detector: got %q, want %q", got, want)
-	}
-}
-
-func TestBuildScript(t *testing.T) {
-	args := ru.ParsedArgs{}
-	args.SetString("pkg", "./...")
-
-	if got, want := buildScript(args), "go build ./..."; got != want {
-		t.Errorf("got %q, want %q", got, want)
 	}
 }
 

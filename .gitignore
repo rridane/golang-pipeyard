@@ -11,5 +11,8 @@ examples/_otel_local/data/
 # Local build output
 bin/
 
+# What a stage writes: the workspace it hands to a container, and its reports
+out/
+
 # Session working notes, not for publication
 .context/
