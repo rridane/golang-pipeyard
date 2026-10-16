@@ -39,15 +39,17 @@ func TestToolchain_SkipsAptWhenNothingNeedsIt(t *testing.T) {
 
 // An unresolved import reads as an error against the code, so a stage that
 // examines the code has to install what the code imports.
-func TestToolchain_AllExtras(t *testing.T) {
-	with := Toolchain{AllExtras: true}.Tool("x", "pyright").Script
-	without := Toolchain{}.Tool("x", "pyright").Script
+// The zero value installs them, and a caller who opts out is obeyed — the
+// three stages used to overwrite this field, which made it a lie.
+func TestToolchain_ExtrasAreInstalledUnlessRefused(t *testing.T) {
+	byDefault := Toolchain{}.Tool("x", "pyright").Script
+	refused := Toolchain{WithoutExtras: true}.Tool("x", "pyright").Script
 
-	if !strings.Contains(with, "uv run --frozen --all-extras pyright") {
-		t.Errorf("got %q", with)
+	if !strings.Contains(byDefault, "uv run --frozen --all-extras pyright") {
+		t.Errorf("got %q", byDefault)
 	}
-	if strings.Contains(without, "--all-extras") {
-		t.Errorf("got %q", without)
+	if strings.Contains(refused, "--all-extras") {
+		t.Errorf("got %q", refused)
 	}
 }
 

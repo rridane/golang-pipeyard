@@ -28,10 +28,14 @@ type Toolchain struct {
 	// own binary needs a library the slim image leaves out.
 	Packages []string
 
-	// AllExtras installs every optional dependency group. A stage whose work
-	// reads the code that imports them needs it: without, the tool reports
-	// an unresolved import as a fault of the repository.
-	AllExtras bool
+	// WithoutExtras leaves the optional dependency groups out.
+	//
+	// They are installed by default because a tool that cannot resolve an
+	// import reports it as a fault of the code: on a repository whose tests
+	// import its three extras, leaving them out invented eight type errors.
+	// Set this for a project with an extra too heavy to install for a check
+	// that does not read the code using it.
+	WithoutExtras bool
 
 	// Caches are container paths to keep between runs, besides uv's own.
 	Caches []string
@@ -65,8 +69,8 @@ func (t Toolchain) setup() string {
 }
 
 func (t Toolchain) extras() string {
-	if t.AllExtras {
-		return "--all-extras "
+	if t.WithoutExtras {
+		return ""
 	}
-	return ""
+	return "--all-extras "
 }

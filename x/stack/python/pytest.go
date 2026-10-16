@@ -69,10 +69,7 @@ func (s *PytestStage) Execute(
 		return err
 	}
 
-	chain := s.Toolchain
-	chain.AllExtras = true
-
-	tool := chain.Tool("test", s.command(args.String("markers")))
+	tool := s.Toolchain.Tool("test", s.command(args.String("markers")))
 	tool.Script = s.exports() + tool.Script
 
 	result, err := tool.Run(ctx, cb, workspace)

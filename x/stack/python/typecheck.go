@@ -27,8 +27,8 @@ type TypeCheckStage struct {
 	OutDir string
 
 	// Toolchain decides the image, the uv version and what gets installed.
-	// Its zero value installs every extra and the library pyright's own Node
-	// needs.
+	// Its zero value installs every extra; the library pyright's own Node
+	// needs is added whatever it says.
 	Toolchain Toolchain
 
 	// Paths are what to examine. Empty lets pyright read its own
@@ -71,15 +71,13 @@ func (s *TypeCheckStage) Execute(
 	return nil
 }
 
-// toolchain fills in what this stage needs and leaves the rest to the caller:
-// every extra, and libatomic1 for the Node pyright carries.
+// toolchain adds what pyright needs and changes nothing the caller chose: the
+// library its bundled Node links against, and somewhere to keep that Node
+// between runs.
 func (s *TypeCheckStage) toolchain() Toolchain {
 	chain := s.Toolchain
 
-	chain.AllExtras = true
-	if len(chain.Packages) == 0 {
-		chain.Packages = []string{"libatomic1"}
-	}
+	chain.Packages = append(chain.Packages, "libatomic1")
 	chain.Caches = append(chain.Caches, pyrightNodeCache)
 
 	return chain

@@ -51,10 +51,7 @@ func (s *ArchitectureStage) Execute(
 		return err
 	}
 
-	chain := s.Toolchain
-	chain.AllExtras = true
-
-	result, err := chain.Tool("architecture", s.command()).Run(ctx, cb, workspace)
+	result, err := s.Toolchain.Tool("architecture", s.command()).Run(ctx, cb, workspace)
 	if err != nil {
 		return err
 	}
