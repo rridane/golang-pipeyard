@@ -90,7 +90,7 @@ func callExecute(method reflect.Value, args []reflect.Value, stageName string) e
 	// IsNil first also turns a nil *MyError into no error, which converting to
 	// the interface would not.
 	switch last.Kind() {
-	case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+	case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
 		if last.IsNil() {
 			return nil
 		}

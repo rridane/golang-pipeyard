@@ -1,0 +1,27 @@
+# The linter the lint stage runs. It lives here rather than in the stage so
+# that a laptop and the CI answer to the same rules.
+version: "2"
+
+linters:
+  settings:
+    errcheck:
+      # A deferred Close has nowhere to put an error, and every write path
+      # here flushes with Sync before it returns, so the Close that follows
+      # has nothing left to report. Writing to a stream is the same: a
+      # pipeline whose output is gone has already failed in a way this error
+      # cannot describe.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*os.File).Close
+        - (io/fs.File).Close
+        - fmt.Fprintln
+        - fmt.Fprintf
+
+  exclusions:
+    rules:
+      # A test that asserts a panic has to write the code that panics.
+      - path: _test\.go
+        text: SA5000
+      # A suggestion about how a test reads, which is the author's call.
+      - path: _test\.go
+        text: QF1002

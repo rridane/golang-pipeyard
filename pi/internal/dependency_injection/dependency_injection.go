@@ -49,7 +49,7 @@ func GetDependencies(m reflect.Method, injectMethods []reflect.Value, stageName 
 			// An injector signals "not configured" with nil, which only a nilable
 			// kind can do. IsNil on anything else panics.
 			switch injectedService.Kind() {
-			case reflect.Ptr, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+			case reflect.Pointer, reflect.Interface, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
 				if injectedService.IsNil() {
 					continue
 				}
