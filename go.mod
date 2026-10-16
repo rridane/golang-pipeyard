@@ -1,6 +1,6 @@
 module github.com/rridane/golang-pipeyard
 
-go 1.26.8
+go 1.26.0
 
 require (
 	github.com/Unleash/unleash-go-sdk/v5 v5.0.3

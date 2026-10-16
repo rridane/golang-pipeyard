@@ -112,7 +112,7 @@ func (r release) recipe() mod.Dockerfile {
 	return mod.Dockerfile{
 		Args: r,
 		Template: `
-			FROM golang:1.24-alpine AS builder
+			FROM golang:1.26-alpine AS builder
 			ARG VERSION
 			WORKDIR /src
 			COPY go.mod go.sum ./
@@ -124,7 +124,7 @@ func (r release) recipe() mod.Dockerfile {
 			      -ldflags "-s -w -X main.version=${VERSION}" \
 			      -o /out/pipeyard-ci ./ci
 
-			FROM golang:1.24-alpine AS runtime
+			FROM golang:1.26-alpine AS runtime
 			# The toolchain needs a writable build and module cache, and uid 1001
 			# is what a CI runner owns a mounted workspace with, so the pipeline
 			# works without running as root.
