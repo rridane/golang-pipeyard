@@ -4,6 +4,56 @@ Versions follow semver. Until 1.0.0 the API can change between minor versions.
 Breaking changes are listed first in each entry, because for a shared pipeline
 binary they are what a project has to react to before moving its floating tag.
 
+## 0.2.0 — 2026-10-17
+
+A catalogue of ready-made stages, and the pipeline that builds Pipeyard now
+consumes it like any other project would.
+
+### Breaking
+
+- **`lint` no longer takes `--image`.** Which linter a repository answers to is
+  a property of the repository, not a choice to make at the command line where
+  one run could quietly disagree with the next. It is
+  `golang.LintStage.Image`, and the default moved from
+  `golangci-lint:v1.62-alpine` to `v2.13.2-alpine`: v1.62 was built with Go
+  1.23 and refuses a module targeting 1.24, so the stage could not run at all.
+- **BuildKit moved from v0.25.1 to v0.31.2**, which holds
+  `k8s.io/{api,client-go,kubectl,component-base}` at v0.34.1 in any module
+  that imports `x/mod`. A consumer pinning those elsewhere has to reconcile.
+  It clears 37 of the 70 advisories the dependency tree carried. v0.34.0 stays
+  out of reach until Helm moves: its `kubectl` wants a package `k8s.io/api`
+  dropped in v0.37.
+
+### Added
+
+- **`x/stack`, a catalogue of stages a repository configures instead of
+  writing.** Thirteen of them, under eleven commands.
+
+  | | |
+  |---|---|
+  | `x/stack` | `Workspace`, the files git would see; `Tool`, one command in a pinned image; `Script`, `Quote`, `QuoteAll`, `TrackedFiles` |
+  | `x/stack/common` | `guard` holds a repository to its own rules about what may be committed, `secrets` scans the whole history, `audit` looks the locked dependencies up in OSV |
+  | `x/stack/golang` | `build`, `fmt`, `vet`, `test`, `lint` |
+  | `x/stack/python` | `lint`, `lock-check`, `typecheck`, `architecture`, `test`, over a `Toolchain` that runs the versions the project's own lockfile pins |
+
+  A stage declares what it needs as struct fields and what varies per run as
+  flags. A field is a property of the repository — paths, pinned versions, a
+  queue name. A flag is a property of the run.
+
+- `Tool.Caches`, the BuildKit cache mounts a tool reads between runs. The
+  paths are asked of the image rather than assumed, because a cache mounted
+  where nothing reads it is never used and nothing says so.
+- `.golangci.yml`, so a laptop and the CI answer to the same rules.
+
+### Changed
+
+- **Pipeyard's own pipeline registers five stages from the catalogue** instead
+  of defining them. `ci/` keeps `release` and `publish`, whose work is this
+  project's own and which no field would express.
+- `reflect.Ptr` became `reflect.Pointer` in the two reflection switches. Same
+  constant, current name.
+- 90 tests across 13 packages, up from 54 across 9.
+
 ## 0.1.2 — 2026-10-11
 
 ### Changed
