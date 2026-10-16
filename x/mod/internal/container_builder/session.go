@@ -126,7 +126,7 @@ func (d *daemon) watch(ctx context.Context) chan *client.SolveStatus {
 func (r BuildRequest) compile(ctx context.Context, gw gateway.Client) (llb.State, *dockerspec.DockerOCIImage, error) {
 	buildCtx := llb.Local(dockerui.DefaultLocalNameContext)
 
-	state, image, _, _, err := dockerfile2llb.Dockerfile2LLB(ctx, []byte(r.Dockerfile.Render()),
+	result, err := dockerfile2llb.Dockerfile2LLB(ctx, []byte(r.Dockerfile.Render()),
 		dockerfile2llb.ConvertOpt{
 			Config: dockerui.Config{
 				BuildArgs: r.BuildArgs,
@@ -139,7 +139,7 @@ func (r BuildRequest) compile(ctx context.Context, gw gateway.Client) (llb.State
 	if err != nil {
 		return llb.State{}, nil, fmt.Errorf("invalid dockerfile: %w", err)
 	}
-	return *state, image, nil
+	return result.State, result.Image, nil
 }
 
 func (r BuildRequest) execute(ctx context.Context, gw gateway.Client, state llb.State) (gateway.Reference, error) {
@@ -237,7 +237,7 @@ func (r BuildRequest) dockerignore(dir string) ([]string, error) {
 // the build only.
 func (d *daemon) attachables(req BuildRequest) []session.Attachable {
 	auth := authprovider.NewDockerAuthProvider(authprovider.DockerAuthProviderConfig{
-		ConfigFile: d.dockerConfig(),
+		AuthConfigProvider: authprovider.LoadAuthConfig(d.dockerConfig()),
 	})
 
 	attachables := []session.Attachable{auth}
