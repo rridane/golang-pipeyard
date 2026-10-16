@@ -56,3 +56,49 @@ func TestParseAdvisories_RefusesWhatIsNotAReport(t *testing.T) {
 		}
 	}
 }
+
+// One hole carries a GO- entry, a CVE- and a GHSA-, and the databases return
+// all three. Counting entries would treble every number.
+const aliased = `{"results":[
+  {"source":{"path":"/src/go.mod"},"packages":[
+    {"package":{"name":"golang.org/x/crypto","version":"0.43.0"},
+     "vulnerabilities":[
+       {"id":"GO-2025-4134","aliases":["CVE-2025-58181","GHSA-j5w8-q4qc-rx2x"]},
+       {"id":"GHSA-j5w8-q4qc-rx2x","aliases":["CVE-2025-58181","GO-2025-4134"]},
+       {"id":"CVE-2025-58181","aliases":["GO-2025-4134"]},
+       {"id":"GO-2025-4135","aliases":["CVE-2025-47914"]}
+     ]}
+  ]}
+]}`
+
+func TestParseAdvisories_CountsOneHoleOnce(t *testing.T) {
+	advisories, err := parseAdvisories([]byte(aliased))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if len(advisories) != 2 {
+		got := make([]string, 0, len(advisories))
+		for _, a := range advisories {
+			got = append(got, a.ID)
+		}
+		t.Fatalf("four entries for two holes should give two advisories, got %v", got)
+	}
+}
+
+// The same identifier against two packages is two advisories: each is fixed on
+// its own.
+func TestParseAdvisories_KeepsTheSameHoleInTwoPackages(t *testing.T) {
+	shared := `{"results":[{"source":{"path":"/src/go.mod"},"packages":[
+	  {"package":{"name":"a","version":"1"},"vulnerabilities":[{"id":"GO-1","aliases":["CVE-1"]}]},
+	  {"package":{"name":"b","version":"2"},"vulnerabilities":[{"id":"GO-1","aliases":["CVE-1"]}]}
+	]}]}`
+
+	advisories, err := parseAdvisories([]byte(shared))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(advisories) != 2 {
+		t.Fatalf("want one per package, got %v", advisories)
+	}
+}

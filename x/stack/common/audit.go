@@ -120,6 +120,11 @@ func (s *AuditStage) script(paths []string) string {
 
 // parseAdvisories flattens the scanner's report, which nests a lockfile, the
 // packages it locks and the vulnerabilities against each.
+//
+// One vulnerability comes back several times, once under each identifier the
+// databases give it: a GO- entry, its CVE- and its GHSA- alias are the same
+// hole. Counting entries would multiply every number by three, so the aliases
+// are what decides whether two entries are one advisory.
 func parseAdvisories(raw []byte) ([]Advisory, error) {
 	var report struct {
 		Results []struct {
@@ -132,7 +137,8 @@ func parseAdvisories(raw []byte) ([]Advisory, error) {
 					Version string `json:"version"`
 				} `json:"package"`
 				Vulnerabilities []struct {
-					ID string `json:"id"`
+					ID      string   `json:"id"`
+					Aliases []string `json:"aliases"`
 				} `json:"vulnerabilities"`
 			} `json:"packages"`
 		} `json:"results"`
@@ -143,11 +149,24 @@ func parseAdvisories(raw []byte) ([]Advisory, error) {
 	}
 
 	var advisories []Advisory
+
 	for _, result := range report.Results {
 		lockfile := strings.TrimPrefix(result.Source.Path, stack.ContainerRoot+"/")
 
 		for _, locked := range result.Packages {
+			// Per package: the same identifier against two packages is two
+			// advisories, because each is fixed on its own.
+			seen := make(map[string]bool)
+
 			for _, vulnerability := range locked.Vulnerabilities {
+				names := append([]string{vulnerability.ID}, vulnerability.Aliases...)
+				if known(seen, names) {
+					continue
+				}
+				for _, name := range names {
+					seen[name] = true
+				}
+
 				advisories = append(advisories, Advisory{
 					Lockfile: lockfile,
 					Package:  locked.Package.Name,
@@ -158,4 +177,14 @@ func parseAdvisories(raw []byte) ([]Advisory, error) {
 		}
 	}
 	return advisories, nil
+}
+
+// known reports whether any of the names has already been counted.
+func known(seen map[string]bool, names []string) bool {
+	for _, name := range names {
+		if seen[name] {
+			return true
+		}
+	}
+	return false
 }
