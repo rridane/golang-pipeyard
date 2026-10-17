@@ -17,6 +17,7 @@ import (
 	"github.com/rridane/golang-pipeyard/x/inj/sys"
 	"github.com/rridane/golang-pipeyard/x/lay"
 	"github.com/rridane/golang-pipeyard/x/mod"
+	"github.com/rridane/golang-pipeyard/x/stack/common"
 	"github.com/rridane/golang-pipeyard/x/stack/golang"
 )
 
@@ -24,6 +25,19 @@ import (
 var version = "dev"
 
 const serviceName = "pipeyard-ci"
+
+// acceptedAdvisories are the ones this repository has assessed and holds not
+// to apply. The audit fails on an identifier that matches nothing, so this
+// list cannot outlive its reasons.
+var acceptedAdvisories = []string{
+	// golang.org/x/crypto is required for nacl/sign, through BuildKit's
+	// auth provider. GO-2026-5932 is about its openpgp package, which has
+	// no fixed version and which nothing here imports:
+	//
+	//	$ go mod why golang.org/x/crypto/openpgp
+	//	(main module does not need package golang.org/x/crypto/openpgp)
+	"GO-2026-5932",
+}
 
 func main() {
 	loadEnv()
@@ -91,6 +105,7 @@ func main() {
 		RegisterStage(&golang.VetStage{}).
 		RegisterStage(&golang.TestStage{}).
 		RegisterStage(&golang.LintStage{}).
+		RegisterStage(&common.AuditStage{Accept: acceptedAdvisories}).
 		RegisterStage(&ReleaseStage{}).
 		RegisterStage(&PublishStage{})
 
