@@ -71,6 +71,7 @@ type TeamsNotificationButton = teams_sdk.TeamsNotificationButton
 
 type GithubReleaseSDK = github_releases_sdk.ReleaseFactory
 type GithubReleaseConfig = github_releases_sdk.Config
+type GithubPublishedRelease = github_releases_sdk.Published
 
 func NewGithubReleaseSDK(config github_releases_sdk.Config) *github_releases_sdk.ReleaseFactory {
 	return github_releases_sdk.NewGithubReleaseSDK(config)

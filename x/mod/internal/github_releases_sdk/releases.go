@@ -5,9 +5,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/google/go-github/v50/github"
 	"golang.org/x/oauth2"
@@ -133,21 +135,9 @@ func (f *ReleaseFactory) PrepareRelease() IRelease {
 		f.releaseName = f.tagName
 	}
 
-	ctx := context.Background()
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: f.config.Token},
-	)
-	tc := oauth2.NewClient(ctx, ts)
-
-	var client *github.Client
-	if f.config.Enterprise && f.config.BaseURL != "" {
-		var err error
-		client, err = github.NewEnterpriseClient(f.config.BaseURL, "", tc)
-		if err != nil {
-			return (&Release{}).fail("github release: enterprise client for %s: %w", f.config.BaseURL, err)
-		}
-	} else {
-		client = github.NewClient(tc)
+	client, err := f.client()
+	if err != nil {
+		return (&Release{}).fail("github release: %w", err)
 	}
 
 	return &Release{
@@ -160,6 +150,85 @@ func (f *ReleaseFactory) PrepareRelease() IRelease {
 		Config:          f.config,
 		client:          client,
 	}
+}
+
+func (f *ReleaseFactory) client() (*github.Client, error) {
+	tc := oauth2.NewClient(context.Background(), oauth2.StaticTokenSource(
+		&oauth2.Token{AccessToken: f.config.Token},
+	))
+
+	if f.config.Enterprise && f.config.BaseURL != "" {
+		client, err := github.NewEnterpriseClient(f.config.BaseURL, "", tc)
+		if err != nil {
+			return nil, fmt.Errorf("enterprise client for %s: %w", f.config.BaseURL, err)
+		}
+		return client, nil
+	}
+	return github.NewClient(tc), nil
+}
+
+// Published is a release anyone can download: not a draft, not a prerelease.
+type Published struct {
+	Tag string
+
+	// Assets maps a file name to the id the download endpoint takes.
+	Assets map[string]int64
+}
+
+// PublishedWithPrefix lists the published releases whose tag starts with
+// prefix. Several binaries released from one repository each keep their own
+// line of tags, "name/v1.2.3", and this is how one finds its own.
+func (f *ReleaseFactory) PublishedWithPrefix(ctx context.Context, prefix string) ([]Published, error) {
+	client, err := f.client()
+	if err != nil {
+		return nil, err
+	}
+
+	var found []Published
+	options := &github.ListOptions{PerPage: 100}
+
+	for {
+		releases, response, err := client.Repositories.ListReleases(
+			ctx, f.config.Owner, f.config.Repo, options)
+		if err != nil {
+			return nil, fmt.Errorf("list the releases of %s/%s: %w", f.config.Owner, f.config.Repo, err)
+		}
+
+		for _, release := range releases {
+			if release.GetDraft() || release.GetPrerelease() ||
+				!strings.HasPrefix(release.GetTagName(), prefix) {
+				continue
+			}
+			assets := make(map[string]int64, len(release.Assets))
+			for _, asset := range release.Assets {
+				assets[asset.GetName()] = asset.GetID()
+			}
+			found = append(found, Published{Tag: release.GetTagName(), Assets: assets})
+		}
+
+		if response == nil || response.NextPage == 0 {
+			return found, nil
+		}
+		options.Page = response.NextPage
+	}
+}
+
+// DownloadAsset reads one release asset. GitHub answers with a redirect to
+// its storage, which the default client follows.
+func (f *ReleaseFactory) DownloadAsset(ctx context.Context, id int64) ([]byte, error) {
+	client, err := f.client()
+	if err != nil {
+		return nil, err
+	}
+
+	body, _, err := client.Repositories.DownloadReleaseAsset(
+		ctx, f.config.Owner, f.config.Repo, id, http.DefaultClient)
+	if err != nil {
+		return nil, fmt.Errorf("download asset %d: %w", id, err)
+	}
+	defer body.Close()
+
+	return io.ReadAll(body)
 }
 
 func (r *Release) CreateTag() IRelease {
