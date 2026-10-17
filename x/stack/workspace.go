@@ -48,9 +48,8 @@ func NewWorkspace(ctx context.Context, sh *mod.ShellExecutor, outDir string) (Wo
 		return Workspace{}, fmt.Errorf("clear the previous workspace: %w", err)
 	}
 
-	excluded := outDir + "/"
 	for _, name := range files {
-		if strings.HasPrefix(name, excluded) {
+		if leftOut(name, outDir) {
 			continue
 		}
 		if err := copyFile(name, filepath.Join(w.Dir, name)); err != nil {
@@ -58,6 +57,13 @@ func NewWorkspace(ctx context.Context, sh *mod.ShellExecutor, outDir string) (Wo
 		}
 	}
 	return w, nil
+}
+
+// leftOut keeps a previous workspace out of the next one, and the repository's
+// .dockerignore out of every one: it is written for the repository's own
+// image, and BuildKit would apply it to a context git has already filtered.
+func leftOut(name, outDir string) bool {
+	return name == ".dockerignore" || strings.HasPrefix(name, outDir+"/")
 }
 
 // Generated reserves a path for a file the stage produces: it creates the
