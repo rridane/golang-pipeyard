@@ -99,21 +99,23 @@ func (t Tool) Run(ctx context.Context, cb *mod.ContainerBuilder, w Workspace) (R
 	return result, nil
 }
 
-// parseReport splits the output from the exit code the RUN step appended.
+// parseReport splits the output from the exit code the RUN step appended. The
+// marker is the last one in the report, and it may follow output that does not
+// end with a newline.
 func parseReport(raw []byte) (Result, error) {
 	raw = bytes.TrimRight(raw, "\n")
 
-	cut := bytes.LastIndexByte(raw, '\n')
-	last := string(raw[cut+1:])
+	cut := bytes.LastIndex(raw, []byte("exit="))
+	if cut < 0 {
+		return Result{}, fmt.Errorf("no exit code at the end of the output: %q", raw)
+	}
 
+	last := string(raw[cut:])
 	code, err := strconv.Atoi(strings.TrimPrefix(last, "exit="))
 	if err != nil {
 		return Result{}, fmt.Errorf("no exit code at the end of the output: %q", last)
 	}
 
-	output := ""
-	if cut >= 0 {
-		output = string(raw[:cut])
-	}
+	output := strings.TrimSuffix(string(raw[:cut]), "\n")
 	return Result{Output: output, ExitCode: code}, nil
 }

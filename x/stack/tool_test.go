@@ -35,6 +35,19 @@ func TestParseReport_AcceptsNoOutputAtAll(t *testing.T) {
 	}
 }
 
+// zizmor prints its JSON without a final newline, so the trailer lands on the
+// same line as the output's last character.
+func TestParseReport_TrailerAfterOutputWithoutNewline(t *testing.T) {
+	result, err := parseReport([]byte("[]exit=13\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if result.Output != "[]" || result.ExitCode != 13 {
+		t.Fatalf("want [] and exit 13, got %q and %d", result.Output, result.ExitCode)
+	}
+}
+
 // Without the trailer the stage has no idea whether the tool ran, so this has
 // to be an error rather than a zero value.
 func TestParseReport_RefusesAReportWithoutATrailer(t *testing.T) {
