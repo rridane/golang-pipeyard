@@ -25,11 +25,6 @@ var version = "dev"
 
 const serviceName = "pipeyard-ci"
 
-// sourceDirs is what gofmt is pointed at. The whole repository would be
-// simpler, but examples/ carries a recorded telemetry volume this user cannot
-// read, and gofmt stops on the first directory it cannot open.
-var sourceDirs = []string{"pi", "ru", "x", "ci"}
-
 func main() {
 	loadEnv()
 
@@ -92,7 +87,7 @@ func main() {
 	// release and publish stay here, because what they do is this project's
 	// own and there is no field that would express it.
 	pipe.RegisterStage(&golang.BuildStage{}).
-		RegisterStage(&golang.FormatStage{Paths: sourceDirs}).
+		RegisterStage(&golang.FormatStage{}).
 		RegisterStage(&golang.VetStage{}).
 		RegisterStage(&golang.TestStage{}).
 		RegisterStage(&golang.LintStage{}).

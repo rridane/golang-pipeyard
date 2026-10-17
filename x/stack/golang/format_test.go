@@ -3,7 +3,9 @@ package golang
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -42,13 +44,52 @@ func TestFormatStage_PassesOnAFormattedFile(t *testing.T) {
 	}
 }
 
-// goFile writes one file into a directory of its own and returns it.
+// A copy of the repository under out/ is what git ignores, and what gofmt
+// would have walked into and counted twice.
+func TestFormatStage_ChecksOnlyWhatGitSees(t *testing.T) {
+	dir := goFile(t, "straight.go", "package p\n\nfunc f() {}\n")
+	write(t, dir, ".gitignore", "out/\n")
+	write(t, dir, "out/workspace/crooked.go", "package p\nfunc  f( )  {}\n")
+
+	err := (&FormatStage{}).Execute(
+		context.Background(), ru.ParsedArgs{}, &mod.ShellExecutor{Dir: dir}, zap.NewNop())
+
+	if err != nil {
+		t.Fatalf("an ignored copy must not count, got %v", err)
+	}
+}
+
+func TestGoFiles_KeepsTheGoFilesUnderThePaths(t *testing.T) {
+	files := []string{"pi/stage.go", "pi/doc.md", "x/stack/tool.go", "examples/main.go", "main.go"}
+
+	if got := goFiles(files, []string{"pi", "x/"}); !slices.Equal(got, []string{"pi/stage.go", "x/stack/tool.go"}) {
+		t.Errorf("got %v", got)
+	}
+	if got := goFiles(files, []string{"."}); len(got) != 4 {
+		t.Errorf("the whole repository should keep every Go file, got %v", got)
+	}
+}
+
+// goFile writes one file into a git repository of its own and returns it.
 func goFile(t *testing.T, name, content string) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0o644); err != nil {
+	if out, err := exec.Command("git", "init", "-q", dir).CombinedOutput(); err != nil {
+		t.Fatalf("git init: %v %s", err, out)
+	}
+	write(t, dir, name, content)
+	return dir
+}
+
+func write(t *testing.T, dir, name, content string) {
+	t.Helper()
+
+	path := filepath.Join(dir, name)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	return dir
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
 }
