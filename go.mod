@@ -212,3 +212,7 @@ require (
 	sigs.k8s.io/structured-merge-diff/v6 v6.4.2 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
+
+// 0.2.0 declares go 1.26.8, the patch release that happened to sit on the
+// machine that tagged it, so a consumer had to match it exactly to compile.
+retract v0.2.0

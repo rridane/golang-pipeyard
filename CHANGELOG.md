@@ -4,6 +4,27 @@ Versions follow semver. Until 1.0.0 the API can change between minor versions.
 Breaking changes are listed first in each entry, because for a shared pipeline
 binary they are what a project has to react to before moving its floating tag.
 
+## 0.2.1 — 2026-10-17
+
+The 0.2.0 release could not build itself, and the module published under that
+version predates the fix. Nothing in the library changes here: everything
+below is about how this repository builds and publishes itself.
+
+### Fixed
+
+- **The release image is built with the Go the module asks for.** Both stages
+  of the release recipe were pinned to `golang:1.24-alpine`, and the official
+  Go images set `GOTOOLCHAIN=local`, so the build cannot fetch a newer
+  toolchain for itself: `go mod download` refused a module declaring 1.26 and
+  the release stopped there. Both stages now read `golang:1.26-alpine`.
+- **The `go` directive is `1.26.0`, the minimum the dependencies impose**,
+  where 0.2.0 carried `1.26.8` — the patch release that happened to sit on the
+  machine that ran `go get`. A consumer had to match that patch release to
+  compile at all.
+- **0.2.0 is retracted.** `go get -u` and `module@latest` skip it, and a
+  project that pins it is told to move. Its library code is this one's, but it
+  demands a Go patch release nobody has a reason to match.
+
 ## 0.2.0 — 2026-10-17
 
 A catalogue of ready-made stages, and the pipeline that builds Pipeyard now
