@@ -4,6 +4,50 @@ Versions follow semver. Until 1.0.0 the API can change between minor versions.
 Breaking changes are listed first in each entry, because for a shared pipeline
 binary they are what a project has to react to before moving its floating tag.
 
+## 0.3.0 — 2026-10-17
+
+### Added
+
+- **`common.WorkflowsStage`, the `workflows` command**, audits the GitHub
+  Actions workflows with zizmor 1.30.1, offline. `Policy` takes a zizmor
+  configuration that replaces the repository's own, and it is the only place
+  an exemption can be declared: the stage runs `--no-ignores`, so a
+  `zizmor: ignore` comment left in a workflow does not apply. A repository
+  with no workflow has nothing to audit, and a report the stage cannot read is
+  a failure rather than a pass.
+- **`golang.BinariesStage` and `golang.PublishBinariesStage`, the `binaries`
+  and `publish-binaries` commands**, release every command under `cmd/` as a
+  binary of its own, under tags of its own, `name/v1.2.3`. The builds are
+  reproducible, so `binaries` compares each digest with the last release of
+  that binary and keeps only those that changed, whatever the cause: their own
+  code, a shared package or a dependency. It writes a manifest and a
+  `checksums.txt` the CI attests; `publish-binaries` then tags the exact commit
+  and publishes each release with the binary and its `.sha256`. The patch is
+  raised automatically; a binary never released starts at `v0.1.0`.
+- `GithubReleaseSDK.PublishedWithPrefix` and `DownloadAsset`, which find the
+  releases of one binary among several and read one of their files.
+
+### Fixed
+
+- **A workspace no longer carries the repository's `.dockerignore`.** It is
+  written for the repository's own image, and BuildKit applied it to a context
+  git had already filtered: Pipeyard's own excludes `.github`, so a stage saw
+  no workflow at all. Any stage could lose files the same way.
+- **A tool whose output does not end with a newline no longer fails.** The
+  exit code the RUN step appends landed on the output's last line and was not
+  found. zizmor prints its JSON that way.
+- **`fmt` checks the Go files git sees, and nothing else.** gofmt was handed a
+  directory and walked it: it read the workspace copy a previous stage left
+  under `out/`, reporting every file twice, and stopped on the first directory
+  it could not open. Pipeyard's own pipeline no longer narrows `Paths` to get
+  around it.
+
+### Changed
+
+- Every checkout in Pipeyard's workflows sets `persist-credentials: false`. No
+  step pushes, and the token stays out of `.git/config` for the rest of the
+  job.
+
 ## 0.2.1 — 2026-10-17
 
 The 0.2.0 release could not build itself, and the module published under that
