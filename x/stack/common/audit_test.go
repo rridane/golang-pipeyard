@@ -102,3 +102,61 @@ func TestParseAdvisories_KeepsTheSameHoleInTwoPackages(t *testing.T) {
 		t.Fatalf("want one per package, got %v", advisories)
 	}
 }
+
+// An exemption holds whichever identifier the databases lead with: the report
+// names the hole GO-2025-4134, and accepting its CVE alias has to work.
+func TestAccept_MatchesAnAliasToo(t *testing.T) {
+	advisories, err := parseAdvisories([]byte(aliased))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for _, id := range []string{"GO-2025-4134", "CVE-2025-58181", "GHSA-j5w8-q4qc-rx2x"} {
+		stage := &AuditStage{Accept: []string{id}}
+		accepted, remaining := stage.sift(advisories)
+
+		if len(accepted) != 1 || len(remaining) != 1 {
+			t.Errorf("accepting %s should leave one of each, got %d accepted and %d remaining",
+				id, len(accepted), len(remaining))
+		}
+		if len(stage.unusedAccepts(accepted)) != 0 {
+			t.Errorf("%s matched an advisory, so it is not unused", id)
+		}
+	}
+}
+
+// An exemption nobody needs any more is one nobody rereads, so the stage has
+// to name it rather than carry it.
+func TestAccept_ReportsWhatNoLongerApplies(t *testing.T) {
+	advisories, err := parseAdvisories([]byte(aliased))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stage := &AuditStage{Accept: []string{"GO-2025-4134", "GO-2020-0001"}}
+	accepted, _ := stage.sift(advisories)
+
+	unused := stage.unusedAccepts(accepted)
+	if len(unused) != 1 || unused[0] != "GO-2020-0001" {
+		t.Fatalf("only the identifier that matched nothing is unused, got %v", unused)
+	}
+}
+
+// Accepting nothing is the default, and it must not quietly drop an advisory.
+func TestAccept_EmptyKeepsEverything(t *testing.T) {
+	advisories, err := parseAdvisories([]byte(aliased))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	stage := &AuditStage{}
+	accepted, remaining := stage.sift(advisories)
+
+	if len(accepted) != 0 || len(remaining) != len(advisories) {
+		t.Fatalf("no exemption should keep all %d, got %d accepted and %d remaining",
+			len(advisories), len(accepted), len(remaining))
+	}
+	if len(stage.unusedAccepts(accepted)) != 0 {
+		t.Error("an empty list has nothing unused")
+	}
+}

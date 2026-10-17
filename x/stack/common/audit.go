@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/rridane/golang-pipeyard/pi"
@@ -36,6 +37,15 @@ type AuditStage struct {
 	// Image is the scanner, pinned. Empty uses DefaultScannerImage.
 	Image string
 
+	// Accept are the advisories this repository has assessed and holds not
+	// to apply: a vulnerability in a package nothing imports, or one with no
+	// fixed version. Each entry belongs next to the reason it was accepted,
+	// which is why they are declared here and not on a command line.
+	//
+	// An identifier that matches nothing is an error. An exemption nobody
+	// needs any more is one nobody rereads.
+	Accept []string
+
 	// WarnOnly reports the advisories and succeeds. An advisory is not always
 	// actionable the day it is published.
 	WarnOnly bool
@@ -47,6 +57,14 @@ type Advisory struct {
 	Package  string
 	Version  string
 	ID       string
+
+	// Aliases are the other identifiers the databases give it.
+	Aliases []string
+}
+
+// names is every identifier this vulnerability answers to.
+func (a Advisory) names() []string {
+	return append([]string{a.ID}, a.Aliases...)
 }
 
 func (a Advisory) String() string {
@@ -90,21 +108,77 @@ func (s *AuditStage) Execute(
 		return fmt.Errorf("%w (exit %d):\n%s", err, result.ExitCode, result.Output)
 	}
 
-	for _, a := range advisories {
-		log.Error("advisory", zap.String("dependency", a.String()))
+	accepted, remaining := s.sift(advisories)
+
+	for _, advisory := range remaining {
+		log.Error("advisory", zap.String("dependency", advisory.String()))
+	}
+	for _, advisory := range accepted {
+		log.Info("advisory accepted", zap.String("dependency", advisory.String()))
+	}
+
+	unused := s.unusedAccepts(accepted)
+	for _, id := range unused {
+		log.Error("accepted advisory no longer applies", zap.String("advisory", id))
 	}
 
 	switch {
-	case len(advisories) == 0:
+	case len(remaining) == 0 && len(unused) == 0:
 		log.Info("no known vulnerability in the locked dependencies",
-			zap.Strings("paths", paths))
+			zap.Strings("paths", paths), zap.Int("accepted", len(accepted)))
 		return nil
 	case s.WarnOnly:
-		log.Warn("advisories found, reported only", zap.Int("advisories", len(advisories)))
+		log.Warn("advisories found, reported only", zap.Int("advisories", len(remaining)))
 		return nil
+	case len(unused) > 0:
+		return fmt.Errorf("%d accepted advisory(ies) no longer apply, remove them: %s",
+			len(unused), strings.Join(unused, " "))
 	default:
-		return fmt.Errorf("%d advisory(ies) against the locked dependencies", len(advisories))
+		return fmt.Errorf("%d advisory(ies) against the locked dependencies", len(remaining))
 	}
+}
+
+// sift splits the advisories this repository has accepted from the rest.
+func (s *AuditStage) sift(advisories []Advisory) (accepted, remaining []Advisory) {
+	for _, advisory := range advisories {
+		if s.accepts(advisory) {
+			accepted = append(accepted, advisory)
+			continue
+		}
+		remaining = append(remaining, advisory)
+	}
+	return accepted, remaining
+}
+
+// accepts matches an accepted identifier against the vulnerability's own id
+// and its aliases alike, so an exemption holds whichever one the databases
+// lead with.
+func (s *AuditStage) accepts(advisory Advisory) bool {
+	for _, name := range advisory.names() {
+		if slices.Contains(s.Accept, name) {
+			return true
+		}
+	}
+	return false
+}
+
+// unusedAccepts are the accepted identifiers that matched nothing: either the
+// advisory is gone, or it never applied to this repository.
+func (s *AuditStage) unusedAccepts(accepted []Advisory) []string {
+	matched := make(map[string]bool)
+	for _, advisory := range accepted {
+		for _, name := range advisory.names() {
+			matched[name] = true
+		}
+	}
+
+	var unused []string
+	for _, id := range s.Accept {
+		if !matched[id] {
+			unused = append(unused, id)
+		}
+	}
+	return unused
 }
 
 // script writes the report to a file and prints it, because the scanner
@@ -172,6 +246,7 @@ func parseAdvisories(raw []byte) ([]Advisory, error) {
 					Package:  locked.Package.Name,
 					Version:  locked.Package.Version,
 					ID:       vulnerability.ID,
+					Aliases:  vulnerability.Aliases,
 				})
 			}
 		}
