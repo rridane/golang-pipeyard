@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/rridane/golang-pipeyard/pi"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/log"
@@ -183,11 +184,11 @@ func (o *otelZapCore) Write(entry zapcore.Entry, fields []zapcore.Field) error {
 	record.SetObservedTimestamp(time.Now())
 	record.SetSeverity(severityOf(entry.Level))
 	record.SetSeverityText(entry.Level.String())
-	record.SetBody(log.StringValue(o.body(entry, fields)))
+	record.SetBody(attribute.StringValue(o.body(entry, fields)))
 
 	for _, f := range slices.Concat(o.fields, fields) {
 		if value, ok := attributeValue(f); ok {
-			record.AddAttributes(log.KeyValue{Key: f.Key, Value: value})
+			record.AddAttributes(attribute.KeyValue{Key: attribute.Key(f.Key), Value: value})
 		}
 	}
 
@@ -230,29 +231,29 @@ func stageOf(fields []zapcore.Field) string {
 // attributeValue keeps a field's type. Zap packs a bool, an integer, a float
 // and a duration into Field.Integer and leaves Field.String empty, so reading
 // String for every field turns everything but a string into "".
-func attributeValue(f zapcore.Field) (log.Value, bool) {
+func attributeValue(f zapcore.Field) (attribute.Value, bool) {
 	switch f.Type {
 
 	case zapcore.StringType:
-		return log.StringValue(f.String), true
+		return attribute.StringValue(f.String), true
 
 	case zapcore.BoolType:
-		return log.BoolValue(f.Integer == 1), true
+		return attribute.BoolValue(f.Integer == 1), true
 
 	case zapcore.Int8Type, zapcore.Int16Type, zapcore.Int32Type, zapcore.Int64Type,
 		zapcore.Uint8Type, zapcore.Uint16Type, zapcore.Uint32Type, zapcore.Uint64Type,
 		zapcore.UintptrType:
-		return log.Int64Value(f.Integer), true
+		return attribute.Int64Value(f.Integer), true
 
 	// Float32 and Float64 are packed with different bit widths.
 	case zapcore.Float64Type:
-		return log.Float64Value(math.Float64frombits(uint64(f.Integer))), true
+		return attribute.Float64Value(math.Float64frombits(uint64(f.Integer))), true
 
 	case zapcore.Float32Type:
-		return log.Float64Value(float64(math.Float32frombits(uint32(f.Integer)))), true
+		return attribute.Float64Value(float64(math.Float32frombits(uint32(f.Integer)))), true
 
 	case zapcore.DurationType:
-		return log.StringValue(time.Duration(f.Integer).String()), true
+		return attribute.StringValue(time.Duration(f.Integer).String()), true
 
 	// Integer holds the instant, Interface the location.
 	case zapcore.TimeType:
@@ -260,29 +261,29 @@ func attributeValue(f zapcore.Field) (log.Value, bool) {
 		if location, ok := f.Interface.(*time.Location); ok && location != nil {
 			at = at.In(location)
 		}
-		return log.StringValue(at.Format(time.RFC3339Nano)), true
+		return attribute.StringValue(at.Format(time.RFC3339Nano)), true
 
 	case zapcore.TimeFullType:
 		if at, ok := f.Interface.(time.Time); ok {
-			return log.StringValue(at.Format(time.RFC3339Nano)), true
+			return attribute.StringValue(at.Format(time.RFC3339Nano)), true
 		}
 
 	case zapcore.ByteStringType:
 		if raw, ok := f.Interface.([]byte); ok {
-			return log.StringValue(string(raw)), true
+			return attribute.StringValue(string(raw)), true
 		}
 
 	case zapcore.ErrorType:
 		if err, ok := f.Interface.(error); ok && err != nil {
-			return log.StringValue(err.Error()), true
+			return attribute.StringValue(err.Error()), true
 		}
 
 	case zapcore.SkipType, zapcore.NamespaceType:
-		return log.Value{}, false
+		return attribute.Value{}, false
 	}
 
 	// Stringer, Reflect, and whatever zap.Any was given.
-	return log.StringValue(fmt.Sprint(f.Interface)), true
+	return attribute.StringValue(fmt.Sprint(f.Interface)), true
 }
 
 // severityOf maps Zap levels onto the OTel scale, which is what a log backend
