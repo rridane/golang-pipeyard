@@ -4,6 +4,54 @@ Versions follow semver. Until 1.0.0 the API can change between minor versions.
 Breaking changes are listed first in each entry, because for a shared pipeline
 binary they are what a project has to react to before moving its floating tag.
 
+## 0.4.0 — 2026-10-17
+
+The dependency wall the 0.2.0 entry described is gone, and with it 32 of the
+33 advisories the tree carried. Helm was holding it up; Helm moved.
+
+### Breaking
+
+- **`k8s.io/{api,client-go,kubectl,component-base}` move from v0.34.1 to
+  v0.37.1.** 0.2.0 held them at v0.34.1 because Helm v3.19's `kubectl` wanted
+  a package `k8s.io/api` dropped in v0.37. Helm v3.22.1 does not, so the whole
+  chain moves at once. A consumer pinning those elsewhere has to reconcile.
+- **The `go` directive is `1.26.8`.** Not a precaution this time:
+  `moby/buildkit@v0.34.0 requires go >= 1.26.8`, and the directive was walked
+  down release by release to check. A consumer on an earlier patch release of
+  1.26 cannot build this module.
+- **`go.opentelemetry.io/otel/log` moves from 0.14.0 to 0.21.0**, which
+  dropped its own value types for `go.opentelemetry.io/otel/attribute`:
+  `log.StringValue` is `attribute.StringValue`, `log.KeyValue` is
+  `attribute.KeyValue`, and `attribute.Key` is a named type rather than a
+  string. Only `x/inj/otel` was concerned here; a consumer writing to that API
+  directly has the same substitution to make.
+
+### Added
+
+- **`common.AuditStage.Accept`**, the advisories a repository has assessed and
+  holds not to apply — a vulnerability in a package nothing imports, or one
+  with no fixed version. An accepted identifier matches the vulnerability's
+  own id and its aliases alike, so an exemption holds whichever identifier the
+  databases lead with. `WarnOnly` was the only lever before, and it silences
+  every advisory including the next one.
+
+  **An identifier that matches nothing fails the stage.** An exemption nobody
+  needs any more is one nobody rereads.
+
+### Changed
+
+- **`moby/buildkit` v0.31.2 → v0.34.0**, `helm.sh/helm/v3` v3.19.0 → v3.22.1,
+  `containerd/containerd/v2` 2.2.6 → 2.4.2, `moby/go-archive` 0.2.0 → 0.3.3.
+  **33 advisories become 1.** Helm v3.19 signed provenance with
+  `golang.org/x/crypto/openpgp`, unmaintained and without a fixed version;
+  v3.22.1 uses `github.com/ProtonMail/go-crypto/openpgp`, which the tree
+  already carried. `go mod why` now answers that nothing needs the package.
+- **Pipeyard's own pipeline audits its own dependencies.** It shipped the
+  `audit` stage in 0.2.0 and never ran it on itself, which is how 33 advisories
+  went unnoticed until another repository pointed the stage at this tree. The
+  one that remains is accepted, with the reason beside it: the module is
+  needed for `nacl/sign`, the advisory is about a package nothing imports.
+
 ## 0.3.0 — 2026-10-17
 
 ### Added
